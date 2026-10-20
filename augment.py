@@ -189,17 +189,29 @@ def apply(img, name, rng):
     raise KeyError(name)
 
 
-def random_augment(img, rng=None, p_occlusion=0.45, p_accessory=0.25, p_degrade=0.6):
+# gender-aware choice: coverings follow how people actually dress, beards only on male faces
+OCC_W = {"male":   {"surgical_mask": .30, "cloth_cover": .20, "hijab": .02, "dupatta": .04, "cap": .22, "turban": .22},
+         "female": {"surgical_mask": .30, "cloth_cover": .15, "hijab": .20, "dupatta": .30, "cap": .03, "turban": .02}}
+
+
+def random_augment(img, rng=None, p_occlusion=0.45, p_accessory=0.25, p_degrade=0.6, gender=None):
     """One occlusion at most (masks/coverings are mutually exclusive), optional accessory, 0-2 degradations.
-    Returns (image, list_of_tags). Order: occlusion -> accessory -> degradation (like a real camera pipeline)."""
+    gender: 'male'|'female'|None(unknown -> uniform coverings, no beard). Returns (image, list_of_tags).
+    Order: occlusion -> accessory -> degradation (like a real camera pipeline)."""
     rng = rng or np.random.default_rng()
+    g = str(gender).lower() if gender is not None else None
+    g = g if g in ("male", "female") else None
     tags = []
     if rng.random() < p_occlusion:
-        n = str(rng.choice(list(OCCLUSIONS)))
+        if g:
+            names, w = list(OCC_W[g]), np.array(list(OCC_W[g].values()))
+            n = str(rng.choice(names, p=w / w.sum()))
+        else:
+            n = str(rng.choice(list(OCCLUSIONS)))
         img = OCCLUSIONS[n](img, rng); tags.append(n)
     if rng.random() < p_accessory:
         covered_mouth = bool({"surgical_mask", "cloth_cover"} & set(tags))  # a beard under a mask would be invisible
-        w = {"glasses": 0.4, "sunglasses": 0.4, "beard": 0.0 if covered_mouth else 0.2}  # beard rare: gender/age unknown here
+        w = {"glasses": 0.4, "sunglasses": 0.4, "beard": 0.35 if (g == "male" and not covered_mouth) else 0.0}
         n = str(rng.choice(list(w), p=np.array(list(w.values())) / sum(w.values())))
         img = ACCESSORIES[n](img, rng); tags.append(n)
     if rng.random() < p_degrade:

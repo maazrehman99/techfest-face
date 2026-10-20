@@ -39,7 +39,7 @@ def _work(path):
     return _PIPE.analyze(cv2.imread(path))
 
 
-def extract_all(df, root, cache, workers=6):
+def extract_all(df, root, cache, workers=int(os.environ.get("FACE_WORKERS", "6"))):
     """Single expensive pass: every embedding variant + quality stats per image (pickle-cached).
     Runs `workers` processes with 2 ONNX threads each (one process with all threads was ~10x slower)."""
     import pickle

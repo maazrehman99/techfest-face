@@ -1,0 +1,11 @@
+{
+  "_note": "threshold=0.276 is the val-split threshold at FAR=1% from the baseline eval on halfFace (EER threshold was 0.261). identify_threshold 0.40 stays a conservative placeholder for open-set gallery matching (many identities => more false-match chances), still to be tuned. rec_onnx null = frozen w600k_r50.",
+  "threshold": 0.276,
+  "identify_threshold": 0.4,
+  "rec_onnx": null,
+  "pipeline": {
+    "align": true,
+    "quality_filter": true,
+    "flip_tta": false
+  }
+}

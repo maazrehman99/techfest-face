@@ -40,3 +40,16 @@ FACE_THREADS=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python evaluate.py \
 | 6 | Report + slides (honest: data is South Asian proxy, not Pakistani-specific) | `report/` |
 
 Order that matters: 2 -> 5 can start now; 3 -> 4 is the critical path (no GPU locally, use Colab/Kaggle).
+
+## Face memory (enroll once, recognise forever, no retraining)
+The embedding model is frozen; people are "remembered" as embeddings in `gallery/`. Every enrolment needs `--consent`.
+```
+python gallery.py enroll --name "Ali Khan" --images photos/ali --consent
+python gallery.py identify --images group.jpg --save out/
+python gallery.py scan --input cctv.mp4 --out appearances.csv --every 1
+python gallery.py remove --name "Ali Khan"        # erase a person
+python live.py --source 0                          # browser UI at http://127.0.0.1:8000 (enroll + live labels)
+python gallery.py reindex                          # after swapping in the fine-tuned recognizer
+```
+`identify_threshold` in config.json (default 0.40) must be tuned on the Pakistani eval set. Quick check on halfFace
+(3 unmasked enrolment photos/person, 15 people): 33/37 masked probes correct, 4 Unknown, 0 wrong.

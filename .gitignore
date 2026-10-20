@@ -1,6 +1,24 @@
 .venv/
 __pycache__/
-data/
 models/
 *.log
 *.npz
+gallery/
+runs/
+*.onnx
+*.pkl
+*.pt
+*.pth
+logs_*
+*.zip
+# data: only the processed Pakistani set is shared through git (small aligned crops + licence/author records).
+# halfFace (1.4 GB, public Mendeley download) and raw 640px downloads stay out; the collector can re-download them.
+data/*
+!data/pk_wiki/
+data/pk_wiki/*
+!data/pk_wiki/crops/
+!data/pk_wiki/manifest.csv
+!data/pk_wiki/records.jsonl
+!data/halfface/
+data/halfface/*
+!data/halfface/manifest.csv
