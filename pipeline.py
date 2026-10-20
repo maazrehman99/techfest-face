@@ -27,6 +27,11 @@ from insightface.utils.face_align import norm_crop
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# FACE_PROVIDER=cuda on Colab/Kaggle GPUs; default CPU. Falls back to CPU if CUDA is unavailable.
+if os.environ.get("FACE_PROVIDER") == "cuda" and hasattr(ort, "preload_dlls"):
+    try: ort.preload_dlls()   # find CUDA/cuDNN libs shipped as pip packages
+    except Exception: pass
+PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"] if os.environ.get("FACE_PROVIDER") == "cuda" else ["CPUExecutionProvider"]
 
 
 @dataclass
@@ -55,13 +60,23 @@ class FacePipeline:
         recognizer with a fine-tuned ArcFace ONNX file (same 112x112 -> 512-d interface)."""
         self.cfg = cfg or Config()
         self.app = FaceAnalysis(name="buffalo_l", root=root, allowed_modules=["detection", "recognition"],
-                                providers=["CPUExecutionProvider"])
-        self.app.prepare(ctx_id=-1, det_size=(640, 640))
+                                providers=PROVIDERS)
+        self.app.prepare(ctx_id=0 if PROVIDERS[0].startswith("CUDA") else -1, det_size=(640, 640))
         self.rec = self.app.models["recognition"]
+        if PROVIDERS[0].startswith("CUDA"):
+            self._require_gpu()
         if rec_onnx:
             from insightface.model_zoo import get_model
-            self.rec = get_model(rec_onnx, providers=["CPUExecutionProvider"])
-            self.rec.prepare(ctx_id=-1)
+            self.rec = get_model(rec_onnx, providers=PROVIDERS)
+            self.rec.prepare(ctx_id=0 if PROVIDERS[0].startswith("CUDA") else -1)
+
+    def _require_gpu(self):
+        """FACE_PROVIDER=cuda means "GPU or fail": never silently run on CPU."""
+        for name, m in (("detector", self.app.det_model), ("recognizer", self.rec)):
+            used = m.session.get_providers()
+            if not used or used[0] != "CUDAExecutionProvider":
+                raise RuntimeError(f"FACE_PROVIDER=cuda but the {name} runs on {used}. "
+                                   "Fix: pip uninstall -y onnxruntime && pip install onnxruntime-gpu (plain onnxruntime shadows the GPU build).")
 
     def align_crop(self, bgr):
         """Largest face aligned to the 112x112 ArcFace template, or None. Used to build training crops."""
@@ -131,3 +146,32 @@ class FacePipeline:
         info = self.analyze(bgr)
         st, emb = self.decide(info, self.cfg)
         return {"status": st, "emb": emb, **{k: info.get(k) for k in ("det", "blur", "bright", "size")}}
+
+
+def detect_all(pipe: FacePipeline, bgr, size=640, pad_retry=False):
+    """All faces in a frame, no embedding yet (live use embeds only when needed).
+    -> (image the boxes refer to, [{bbox:[x1,y1,x2,y2], kps:(5,2), det:float}]).
+    pad_retry: if nothing is found, retry with background padding (extreme close-up selfies / ID photos);
+    the returned image is then the padded one, so always use it for cropping."""
+    for pad in ((0.0, 0.5) if pad_retry else (0.0,)):
+        img = bgr
+        if pad:
+            p = int(pad * max(bgr.shape[:2]))
+            img = cv2.copyMakeBorder(bgr, p, p, p, p, cv2.BORDER_CONSTANT, value=[int(v) for v in bgr.reshape(-1, 3).mean(0)])
+        pipe.app.det_model.input_size = (size, size)
+        bboxes, kpss = pipe.app.det_model.detect(img, max_num=0, metric="default")
+        if bboxes is not None and len(bboxes):
+            return img, [{"bbox": b[:4].tolist(), "kps": k, "det": float(b[4])} for b, k in zip(bboxes, kpss)]
+    return bgr, []
+
+
+def embed_face(pipe: FacePipeline, bgr, kps, cfg: Config = None):
+    """-> (embedding or None, aligned 112x112 crop, quality dict). None embedding = failed the quality filter."""
+    cfg = cfg or pipe.cfg
+    crop = norm_crop(bgr, kps, 112)
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    q = {"blur": float(cv2.Laplacian(gray, cv2.CV_64F).var()), "bright": float(gray.mean())}
+    if cfg.quality_filter and (q["blur"] < cfg.min_blur or not (cfg.min_bright <= q["bright"] <= cfg.max_bright)):
+        return None, crop, q
+    e = pipe._embed(crop)
+    return (e[1] if cfg.flip_tta else e[0]), crop, q

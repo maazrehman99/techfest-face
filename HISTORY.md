@@ -1,0 +1,41 @@
+# Project history: what happened, what broke, what we decided, and why
+
+Chronological log so a new Claude session (or teammate) does not repeat work or re-argue settled decisions. Times are 2026, Pakistan time. Read `CLAUDE.md` first for the current state; this file is the "how we got here".
+
+## Context
+Competition: NED CSIT Tech Fest '26 "Nemo's Deep Dive" (AI Alliance). Round 1 "Sonar Sweep" (tabular ML, 10-17) -> top 10 teams go to Round 2 "Every Fish Has a Face": a week-long online task, fine-tune a pretrained face-embedding model for **Pakistani** faces, report due 10-22, hidden benchmark 10-23, presentation counts. Team of three friends, **no local GPU** (the user's laptop: CPU, 12 cores, 31 GB).
+
+## 10-17 to 10-18: research and the first plan
+- Searched for public Pakistani identity-labelled face datasets: **none exists** (PFDB only has Pakistani-vs-not). Public South Asian proxies: halfFace (masked/unmasked, CC BY 4.0), IMFDB (Indian film stars), BUPT Indian (by request), RFW Indian.
+- Decisions (`DECISIONS.md` D1-D8): reuse InsightFace SCRFD + ArcFace R50 (don't write our own backbone), cosine metric, thresholds from a validation split, a custom evaluation harness (ROC/EER/TAR@FAR/per-group/ablation), Colab for training. Original plan D7 was "team collects consented Pakistani photos"; **the user dropped that on 10-18** (three friends cannot collect enough) and chose public data.
+- Built: `pipeline.py`, `evalkit.py`, `evaluate.py`, `run.py`, `augment.py` (synthetic masks/hijab/dupatta/cap/turban/glasses/beard/lighting/blur/CCTV), `ingest.py`, halfFace manifest (938 images / 166 people, eval-only), organizer questions in `REQUESTS_TO_SEND.md`.
+- Fixes: SCRFD misses extreme close-ups (halfFace) -> pad-and-retry fallback in `_detect`; tiny crops (LFW) need 2x upscale + padding; one ONNX process with all threads is ~10x slower than several processes with 2 threads each (`evaluate.py` pool); LFW sanity run lost to a shutdown because `infos.pkl` is saved only at the end.
+
+## 10-19
+Pushed to the user's **private personal GitHub** repo `maazrehman99/techfest-face` (not the work account; repo-local git config uses the noreply email and the personal SSH key).
+
+## 10-20: face memory, decisions, baseline
+- User's goal sharpened: model well trained for Pakistani faces **including dupatta, scarf/hijab, turban, cap, beard**; mode 1 = two images -> same/different; mode 2 (the user's own enhancement) = enroll once and show name or Unknown on images/video, no retraining per person.
+- Built `gallery.py` (enroll/identify/scan/remove/reindex; `--consent` required; stores aligned crops + consent record; refuses a face matching a different person; threshold placeholder 0.40) and `live.py` (browser MJPEG UI, per-track recognition). Small test: 15 halfFace people, 3 enroll photos each, 33/37 masked probes correct, 4 Unknown, 0 wrong. The user's webcam returned a "camera off" frame, so live use is still untested.
+- Augmentation evaluation (60 people): cloth cover, surgical mask, CCTV and beard hurt the score most; dupatta/turban/cap overlays barely did (they leave the face visible, are applied after alignment, and are crude flat shapes). **Fix:** augmentation made gender-aware (beard only on male faces, hijab/dupatta mostly female, turban/cap mostly male).
+- **Data decision locked** (`DECISIONS.md` D7 rewritten): public South Asian data + CC-licensed photos of Pakistani public figures from Wikimedia; coverings from overlays + real photos; **no LLM-generated faces for identity training** (inconsistent identities, stereotypes, domain gap). The three team members may enroll with consent only as the demo gallery. Details: output of a match = name + score only; compute = Colab T4 / a friend's RTX 5080 PC.
+- **Baseline measured on Colab (T4)** on halfFace test: EER 2.32%, acc 97.6%, F1 0.976, TAR@FAR1% 95.8%. Without alignment EER 27.6%; quality filter no effect; flip TTA slight gain. Val thresholds 0.261 (EER) / 0.276 (FAR 1%) -> `config.json` threshold 0.276 (**not** the 0.40 placeholder). Little headroom on halfFace, so the Pakistani held-out split is the real proof.
+- Colab saga (for the record): TPU (v5e-1) is useless (code needs NVIDIA); Drive upload failed -> notebook now uses `files.upload`; "connected to GPU but not utilising it" was `onnxruntime` (pulled in by insightface) shadowing `onnxruntime-gpu` -> install cell uninstalls it, and `FACE_PROVIDER=cuda` now **fails loudly** instead of silently using CPU. A lab RTX 5080 (Blackwell) needs driver >= 570 and PyTorch cu128 (`LAB_GPU_INSTRUCTIONS.md`).
+
+## 10-20 night to 10-21: Wikimedia data
+- `commons.wikimedia.org` is **unreachable from the user's network** (timeouts), while Wikidata, Wikipedia and upload.wikimedia.org work. Workaround in `collect_wikimedia.py`: Wikidata people -> article images from 20 language editions -> licence via the shared-repo imageinfo on enwiki -> download from upload.wikimedia.org.
+- **Bug found by testing:** Wikidata "citizen of Pakistan" includes East-Pakistan-era Bangladeshis (Khaleda Zia, Runa Laila, Taslima Nasrin). Fixed: exclude anyone also a Bangladeshi citizen, require born in Pakistan (or unknown), born >= 1947.
+- **Collector crashed** at ~875/1500 after one failed API call and lost 45 minutes of in-memory work. Fixed: failed requests are skipped, progress is checkpointed (`records_partial.jsonl`, `progress.txt`), and the run auto-restarts in a loop.
+- **Label noise found by eyeballing** sample images when the user asked "are they really Pakistani?": names are right, but article images include other people (Ahsan Iqbal's page had Nawaz Sharif and Shahid Khaqan Abbasi), group photos (Hamid Mir with Osama bin Laden), medals, graves, crowds. **Fix in `process_wikimedia.py`:** dominant-face rule, name-in-filename "anchor" images trusted without the model, other images admitted only if cosine >= 0.40 to the anchor median, people without an anchor dropped. (A first lenient ArcFace-only outlier filter was rejected as circular and too weak.)
+- **Ethics review** (user asked): public figures + free licences + recorded attribution + private repo + consent for gallery are fine, but a free licence is not consent from the person, so: adults only (born <= 2005), sensitive people excluded (`exclude_people.txt`: Aafia Siddiqui, Mukhtaran Bibi), `ATTRIBUTION_AND_USE.md` (research only, private, delete after the competition, target 2026-11-30), and the report must state the limits (public figures skew male/urban/elite; halfFace is a South Asian proxy).
+- **Final Wikimedia dataset turned out much smaller than estimated:** 688 free images -> 314 images/56 people (>=3 each) -> 13 people/48 images after cleaning (test split = 1 person, unusable for EER). Cleaning itself works (inspected contact sheets). Options A/B/C in `CLAUDE.md` section 7 await the user's decision.
+- `finetune.py` written (onnx2torch, ArcFace head initialised from class means, BN frozen, last 30% trainable, best epoch by val EER, falls back to the baseline if nothing improves, exports ONNX). Smoke-tested **on CPU only** with stand-in data and then on the real (tiny) manifest (1 epoch: trains, validates, falls back to baseline, exports); the ONNX export needed `dynamo=False` (new PyTorch default requires `onnxscript`) and was then verified identical to the original model.
+
+## Dead ends / rejected options (do not redo)
+Self-collected consented dataset (not feasible with three people); LLM-generated Pakistani faces for training; Colab TPU; Commons API directly; AdaFace challenger (never pursued); lenient ArcFace-only label cleaning.
+
+## What the user prefers
+Plain simple language, the reason for every step, honest reporting (including negative results), confirmation before outward-facing actions. The user explicitly authorised pushing this repo (private) to `main` on 2026-10-21 so teammates can continue.
+
+## Still open at the time of writing
+Wikimedia collection finishing -> processing -> real-data checks -> push; the fine-tune on the 5080; evaluation of fine-tuned vs baseline on halfFace and the Pakistani test split; unknown-person rejection + `identify_threshold` tuning; real webcam/video test; organizer questions not yet sent by the user; report (10-22) and presentation.

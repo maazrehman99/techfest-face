@@ -28,11 +28,22 @@ Updated 2026-10-18. Every choice is justified against the problem statement, the
 - No local GPU. Colab free T4 is enough for fine-tuning an R50 on a small dataset. Kaggle (~30 GPU h/week) is the backup.
 - Local CPU handles detection, embedding extraction, evaluation, and report generation, which keeps scarce GPU quota for training only.
 
-## D7. Data: team-collected, consented, identity-disjoint
-- No public Pakistani identity-labelled dataset exists (verified by search); public South Asian proxies (RFW Indian, BUPT Indian, IMFDB) are Indian, access-gated, or celebrity-based.
-- Written consent form, per-person anonymised ID, metadata (region, age bracket, gender, covering, glasses, facial hair, mask, capture condition). Split **by identity** into train / val / test so no person appears in two sets.
-- Public data (LFW etc.) used only for sanity checks and as a regularising mix, not as the Pakistani evidence.
+## D7. Data (LOCKED 2026-10-20, supersedes the earlier team-collection plan)
+Final goal: a model well trained for Pakistani faces, including dupatta/scarf/hijab, turban/cap and beards.
+- Team is three friends, so large self-collection is not feasible. No public Pakistani identity-labelled dataset exists.
+- **Real identity data:** public South Asian sets (halfFace, IMFDB, BUPT Indian by request, RFW Indian) PLUS CC-licensed photos of Pakistani public figures (cricketers, actors, politicians, journalists) from Wikimedia Commons: identity-labelled, several photos per person, real beards/turbans/dupattas. Licenses recorded per image; no private individuals scraped.
+- **Coverings:** `augment.py` overlays (dupatta, scarf/hijab, turban, cap, beard, glasses, mask, lighting, blur, CCTV) applied to real identities, so identity labels stay correct. The real public-figure photos are the check that the synthetic coverings transfer.
+- **LLM/AI-generated faces are NOT used for identity training:** generators do not keep one identity consistent across photos, they encode stereotypes, and synthetic-vs-real is a domain gap. They may only be used for illustration in the presentation, labelled as synthetic.
+- **The three team members** enrol with written consent as the live-demo gallery and as a tiny real test; far too few people for training or for headline metrics.
+- Split by identity into train/val/test; halfFace stays eval-only. The report states plainly that data is South Asian + Pakistani public figures, not a large consented Pakistani collection.
 
 ## D8. Fine-tuning recipe (conservative because the dataset is small)
 - Low LR, freeze early blocks, ArcFace margin loss with small margin, mask/blur/low-res/lighting augmentation, early stopping on validation EER.
 - Always compare against the frozen baseline: a fine-tune that raises train accuracy but not validation EER is rejected, and we say so in the report.
+
+## D9. Two modes, one model (LOCKED 2026-10-20)
+- Mode 1 verify (hidden benchmark): two images -> same/different + cosine score (`run.py verify|pairs`).
+- Mode 2 face memory: enroll once with consent, no retraining; on images/video/live show **name + match score, else Unknown** (`gallery.py`, `live.py`). Extra "details" fields are out of scope.
+- Both use the same fine-tuned recognizer (config.json rec_onnx); after swapping the model run `gallery.py reindex`.
+## D10. Compute (LOCKED)
+- Colab notebook written by us, run by the user on a T4 (Kaggle backup); export ONNX, wire into config.json.
