@@ -2,7 +2,7 @@
 
 Read this fully before touching anything. It is the shared memory of the project (written 2026-10-21). If something here conflicts with what you observe in the files, trust the files and tell the user.
 
-> **Also read `HISTORY.md`** (what we did, what broke and was fixed, what was decided and rejected) and `ATTRIBUTION_AND_USE.md` (data licences and permitted use).
+> **Also read `NEXT_STEPS.md`** (current status, pending decision, recommendations), **`HISTORY.md`** (what we did, what broke and was fixed, what was decided and rejected) and `ATTRIBUTION_AND_USE.md` (data licences and permitted use).
 
 ## 1. What we are building and why
 A **face recognition system tuned for Pakistani faces**, for the competition **NED University CSIT Tech Fest '26, "Nemo's Deep Dive", Round 2 "Every Fish Has a Face"** (AI Alliance). The team (three friends) is judged on pipeline quality, fine-tuning on Pakistani data, evaluation rigor, and the presentation. Dates: **report due 2026-10-22; the organizers run a hidden benchmark on 2026-10-23.**
