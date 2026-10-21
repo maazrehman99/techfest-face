@@ -16,7 +16,7 @@ cosine similarity -> threshold chosen on a validation split.
 On the South Asian halfFace benchmark the pretrained baseline reaches **97.6% accuracy, EER 2.32%, AUC 0.993,
 TAR 95.8% at FAR 1%** (3,312 test pairs; threshold fixed on separate validation people). Masked faces are the main
 weakness (96.6% accuracy vs 99.85% unmasked). We then fine-tuned the recognizer on South Asian + Pakistani public-figure
-data with covering augmentation: **[TBD: fine-tuned result vs baseline on the held-out people]**.
+data with covering augmentation: On the new held-out people (64 people) the fine-tuned model was **not clearly better**: a small gain on the hard IMFDB movie frames (EER 10.5% to 10.0%) and on masked faces, but slightly worse on clean halfFace photos (EER 2.9% to 3.9%). We therefore ship the original model and report the fine-tune as an honest experiment (section 6.2; all numbers in `report/RESULTS_FOR_REPORT.md`).
 
 Two modes share one model:
 1. **Verify**: two images in -> same / different person + similarity score (`run.py`). This is the benchmark entry point.
@@ -49,7 +49,8 @@ cleaning tools, fine-tuning script, face-memory system.
 | Set | Size | Role |
 |---|---|---|
 | halfFace (Mendeley pk44mkx9vm, CC BY 4.0) | 166 South Asian people, 938 images, masked/unmasked, 3 poses | Benchmark; for fine-tuning split **by person** into train / val / held-out test (60/15/25%) |
-| Pakistani public figures (Wikimedia, CC/public-domain) | [TBD final count; first pass 13 people / 48 images] | Real Pakistani faces: training + small Pakistani test |
+| IMFDB (IIIT Hyderabad; site states no licence) | 98 Indian film actors x 40 photos = 3,920, about 32% women | Extra South Asian training / held-out data, split by actor |
+| Pakistani public figures (Wikimedia, CC/public-domain) | 13 people / 48 images (all that passed label cleaning) | Real Pakistani faces; kept out of the GPU training, so an unseen Pakistani check |
 | Synthetic coverings (`augment.py`) | applied on the fly | Training-time augmentation only |
 
 **Wikimedia collection.** Pakistani people from Wikidata, their article images from 20 Wikipedia language editions,
@@ -76,9 +77,9 @@ in code), and the baseline is re-measured on exactly the same held-out people.
   beard (male faces only), low/harsh light, blur, low resolution, JPEG, CCTV simulation; plus horizontal flip.
 - AdamW, lr 1e-4 (head 1e-3), cosine schedule, mixed precision, up to 15 epochs, early stopping on **validation EER**.
 - Safety rule: if no epoch beats the untouched baseline on validation, the baseline is kept and we say so.
-- Hardware: NVIDIA RTX 5070 Ti. Training time **[TBD]**.
+- Hardware: one NVIDIA L4 on a Google Cloud VM (Mumbai). About 5 s per epoch; stopped after 6 epochs (early stopping), under one minute of training.
 
-Training curve: **[TBD: history.csv plot, loss and val EER per epoch]**.
+Training curve (validation EER, lower is better): original model 13.24%, epoch 1 **12.04% (best)**, epoch 2 13.11%, epoch 3 12.85%, epoch 4 13.23%, epoch 5 13.80% (stop). The model memorises its 159 training people after one epoch. Raw file: `results/ft_gpu_run/history.csv`.
 
 ## 6. Evaluation
 Protocol: identities never shared between splits; thresholds chosen on validation; all pairs of the same person as
@@ -95,13 +96,17 @@ genuine pairs and an equal number of random different-person impostor pairs; met
 | TAR @ FAR 1% / 0.1% | 95.8% / 88.2% |
 | No-face rate | 1.8% |
 
-### 6.2 Baseline vs fine-tuned on the held-out halfFace people [TBD]
-| Model | EER | Accuracy | TAR@FAR1% | Masked acc. | Unmasked acc. |
-|---|---|---|---|---|---|
-| Baseline (re-measured on the same held-out people) | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| Fine-tuned | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+### 6.2 Baseline vs fine-tuned on the held-out people (full pipeline)
+| Held-out set | Model | EER | Accuracy | TAR@FAR1% | Masked acc. | Unmasked acc. |
+|---|---|---|---|---|---|---|
+| halfFace, 40 people | Original (shipped) | 2.9% | 97.1% | 94.2% | 94.3% | 98.2% |
+| halfFace, 40 people | Fine-tuned | 3.9% | 96.1% | 93.6% | 96.4% | 97.7% |
+| IMFDB, 24 actors | Original (shipped) | 10.5% | 87.5% | 71.1% | n/a | n/a |
+| IMFDB, 24 actors | Fine-tuned | 10.0% | 88.3% | 70.7% | n/a | n/a |
 
-Pakistani public-figure test: **[TBD]**.
+On cropped faces of all 64 held-out people the fine-tuned EER is 10.9% vs 12.1%, but a bootstrap over people shows the gain is small (95% range -2.2 to -0.04 points) and absent on clean halfFace. Women on IMFDB lose accuracy at the shared threshold (83.0% to 77.8%) while their EER is unchanged. Decision: keep the original model.
+
+Pakistani public-figure check (13 people, 48 unseen Wikimedia photos, 1,081 pairs): original 99.2% accuracy, fine-tuned 99.4%, AUC 0.99996 for both, all 70 same-person pairs accepted by both. The test is easy (clear portraits, no coverings) and cannot separate the models; a harder test with real coverings is future work.
 
 ### 6.3 Ablation (baseline, halfFace test)
 | Configuration | EER | Accuracy |
@@ -135,7 +140,7 @@ Head coverings that leave the face visible (dupatta, turban, cap) barely affect 
 
 ### 6.6 Face memory
 Small test: 15 halfFace people, 3 unmasked enrollment photos each; 37 masked probe images: 33 correct, 4 "Unknown",
-**0 wrong names**. Unknown-person rejection and the identification threshold: **[TBD]**.
+**0 wrong names**. Unknown-person rejection and the identification threshold (0.40 is a placeholder) are not measured yet.
 
 ## 7. Ethics, consent and licences
 - Wikimedia images: free licences only, author and licence recorded per image; adults only; sensitive cases excluded.

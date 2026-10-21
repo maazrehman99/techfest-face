@@ -1,0 +1,13 @@
+device: cuda NVIDIA L4
+train 2919 imgs / 159 people; val 741 imgs / 41 people
+trainable params 30,683,136 of 43,572,288
+epoch 0 (baseline) val EER 13.24%
+epoch 1: loss 5.130  val EER 12.04%  (5s)  *best*
+epoch 2: loss 3.756  val EER 13.11%  (4s)
+epoch 3: loss 3.110  val EER 12.85%  (4s)
+epoch 4: loss 2.759  val EER 13.23%  (4s)
+epoch 5: loss 2.420  val EER 13.80%  (4s)
+early stopping
+best val EER 12.04% vs baseline 13.24%
+exported ../runs/ft1/finetuned.onnx; max |onnx - torch| = 1.13e-06
+next: set config.json rec_onnx to this file (path relative to the project), then run evaluate.py on halfFace and the held-out test split

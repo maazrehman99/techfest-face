@@ -47,3 +47,16 @@ Final goal: a model well trained for Pakistani faces, including dupatta/scarf/hi
 - Both use the same fine-tuned recognizer (config.json rec_onnx); after swapping the model run `gallery.py reindex`.
 ## D10. Compute (LOCKED)
 - Colab notebook written by us, run by the user on a T4 (Kaggle backup); export ONNX, wire into config.json.
+
+## D11. Compute update (2026-10-22): Google Cloud GPU VM replaces Colab (supersedes D10)
+- One NVIDIA L4 VM (`g2-standard-8`) in Mumbai (`asia-south1-b`), a company cloud project (name deliberately not recorded here), driven step by step from the laptop (`tools/gcp_finetune.sh`, later by hand). VM deleted only after results were downloaded and the model checksum matched. Hard stop 3 h as a cost guard.
+- Rule from the user: no script may delete the VM on its own after a failure (it did once and cost a 14-minute re-upload). Face data uploaded: only aligned 112x112 crops of halfFace/IMFDB and the original validation/test photos for the evaluation; no Wikimedia, no personal photos.
+
+## D12. Data (2026-10-21/22): A+B plus IMFDB
+- halfFace split by person 60/15/25 (build_ft_data.py); Wikimedia only as a small Pakistani check; IMFDB added (build_imfdb.py: 98 actors x 40 photos, split by actor 59/15/24). Reason: about 600 training photos were too few.
+
+## D13. Which model ships (2026-10-22): the ORIGINAL ArcFace R50
+- Rule (D8): keep the fine-tune only if it is better. Result: small gain on hard IMFDB frames and masked faces, loss on clean halfFace (EER 2.9% to 3.9%), no gain on the Pakistani check, bootstrap shows the gain is marginal. `config.json` `rec_onnx` stays null. The fine-tune is reported as an honest mixed result. ArcFace R50 as the base model stays our deliberate choice (D1, D2); AdaFace was never tested.
+
+## D14. Extra Pakistani test photos (2026-10-22, open)
+- User allowed a hand-picked test-only set. No bulk scraping of Google Images. Openverse (CC) was tried via `collect_openverse.py` but answered with a bot check, so it is parked until an API key exists or the user picks photos by hand into `data/pk_test/`. Evaluation script ready: `tools/eval_pk_test.py`.

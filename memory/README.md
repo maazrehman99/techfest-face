@@ -1,2 +1,1 @@
-The files in this folder are an OLD snapshot (2026-10-19) of the owner's personal notes and are out of date.
-Use `CLAUDE.md`, `HISTORY.md` and `HANDOFF_FINETUNE.md` in the repo root instead.
+`techfest-face-2026-10-22.md` is the CURRENT state. `techfest-face.md` and `nemos-deep-dive.md` are older snapshots (2026-10-19) kept for context; where they disagree, trust `CLAUDE.md`, `NEXT_STEPS.md` and the 2026-10-22 file.
