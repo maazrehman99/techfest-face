@@ -17,7 +17,10 @@ Then `python make_halfface_manifest.py`.
 
 ## Files
 - `pipeline.py` pipeline with toggleable stages; `evalkit.py` / `evaluate.py` metrics (acc/P/R/F1/ROC/FAR/FRR/EER), ablation, per-group
-- `run.py` organizer entry point (`verify`, `embed`, `pairs`); needs a `config.json` (threshold) - NOT WRITTEN YET
+- `run.py` organizer entry point (`verify`, `embed`, `pairs`); threshold in `config.json`
+- `build_ft_data.py` halfFace person split + aligned crops + combined fine-tune manifest (decision A+B); `finetune.py` GPU fine-tune
+- `report/REPORT_DRAFT.md` report draft; `tools/dl_parts.sh` resumable parallel downloader for slow networks
+- **Where we are and how to continue: `NEXT_STEPS.md`**
 - `augment.py` synthetic masks/hijab/cap/glasses/lighting/blur/CCTV
 - `DECISIONS.md` every decision + reasoning (judges care about this: keep it updated)
 - `REQUESTS_TO_SEND.md` questions for organizers; BUPT dataset request

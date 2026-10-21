@@ -49,6 +49,16 @@ class Config:
         return "|".join(f"{k}={v}" for k, v in asdict(self).items() if k in ("align", "quality_filter", "flip_tta"))
 
 
+def imread(path):
+    """cv2.imread returns None for non-ASCII paths on Windows (e.g. Urdu folder names); decoding the bytes works everywhere.
+    Missing or unreadable files give None, which the pipeline reports as no_face."""
+    try:
+        buf = np.fromfile(path, np.uint8)
+        return cv2.imdecode(buf, cv2.IMREAD_COLOR) if buf.size else None
+    except (OSError, ValueError):
+        return None
+
+
 def _unit(e):
     e = np.asarray(e, dtype=np.float32)
     return e / (np.linalg.norm(e) + 1e-9)

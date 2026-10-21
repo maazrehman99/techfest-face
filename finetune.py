@@ -58,11 +58,14 @@ class ArcHead(nn.Module):
         self.w, self.s, self.m = nn.Parameter(init_w.clone()), s, m
 
     def forward(self, emb, y):
-        cos = F.linear(F.normalize(emb), F.normalize(self.w)).clamp(-1 + 1e-6, 1 - 1e-6)
-        th = torch.acos(cos.gather(1, y[:, None]))
-        tgt = torch.cos(th + self.m)
-        logits = cos.scatter(1, y[:, None], tgt)
-        return F.cross_entropy(self.s * logits, y)
+        # margin math in float32: under CUDA autocast F.linear gives float16 but acos/cos give float32, and scatter
+        # refuses mixed dtypes (also, acos near +-1 is too imprecise in float16)
+        with torch.autocast(emb.device.type, enabled=False):
+            cos = F.linear(F.normalize(emb.float()), F.normalize(self.w.float())).clamp(-1 + 1e-6, 1 - 1e-6)
+            th = torch.acos(cos.gather(1, y[:, None]))
+            tgt = torch.cos(th + self.m)
+            logits = cos.scatter(1, y[:, None], tgt)
+            return F.cross_entropy(self.s * logits, y)
 
 
 def freeze(model, trainable):
@@ -96,7 +99,8 @@ def val_eer(emb, ids):
     I, J, y = make_pairs(ids, max_pos=20000)
     s = np.einsum("ij,ij->i", emb[I], emb[J])
     fpr, tpr, _ = roc_curve(y, s)
-    return float(fpr[np.nanargmin(np.abs(fpr - (1 - tpr)))])
+    k = np.nanargmin(np.abs(fpr - (1 - tpr)))
+    return float((fpr[k] + 1 - tpr[k]) / 2)   # same EER definition as evalkit.eer_and_thr
 
 
 def main():
@@ -107,6 +111,9 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-4); ap.add_argument("--trainable", type=float, default=0.3)
     ap.add_argument("--patience", type=int, default=4); ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--max-train", type=int, default=0, help="debug: cap number of training images")
+    ap.add_argument("--allow-halfface", action="store_true",
+                    help="decision B (2026-10-21): train on the halfFace TRAIN people of manifest_ft (data/ft_manifest.csv); "
+                         "its test people stay held out and the baseline is re-measured on them")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     log = open(os.path.join(a.out, "log.txt"), "a", encoding="utf-8")
@@ -117,15 +124,20 @@ def main():
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     P("device:", dev, torch.cuda.get_device_name(0) if dev == "cuda" else "")
     df = pd.read_csv(a.manifest)
-    assert not any("halfface" in str(p).lower() for p in df.get("path", df.crop)), "halfFace must not be in the training manifest"
-    tr, va = df[df.split == "train"], df[df.split == "val"]
+    if not a.allow_halfface:
+        assert not any("halfface" in str(p).lower() for p in df.get("path", df.crop)), \
+            "halfFace is in the manifest: pass --allow-halfface only with the person-split data/ft_manifest.csv"
+    tr, va, te = df[df.split == "train"], df[df.split == "val"], df[df.split == "test"]
     if a.max_train:
         tr = tr.sample(min(a.max_train, len(tr)), random_state=0)
     assert not set(tr.identity) & set(va.identity), "identity leak between train and val"
+    assert not set(tr.identity) & set(te.identity), "identity leak between train and test"
     P(f"train {len(tr)} imgs / {tr.identity.nunique()} people; val {len(va)} imgs / {va.identity.nunique()} people")
 
+    import onnx
     from onnx2torch import convert
-    model = convert(a.onnx).to(dev)
+    # pass the loaded model, not the path: with a path onnx2torch reopens a NamedTemporaryFile, which Windows forbids
+    model = convert(onnx.load(a.onnx)).to(dev)
     n_tr, n_all = freeze(model, a.trainable)
     P(f"trainable params {n_tr:,} of {n_all:,}")
 
@@ -167,7 +179,7 @@ def main():
 
     if best_state is None:
         P(f"NO epoch beat the baseline val EER ({base * 100:.2f}%): exporting the unchanged baseline. Report this honestly.")
-        model = convert(a.onnx).to(dev)
+        model = convert(onnx.load(a.onnx)).to(dev)
     else:
         model.load_state_dict(best_state)
         P(f"best val EER {best * 100:.2f}% vs baseline {base * 100:.2f}%")

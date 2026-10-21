@@ -17,7 +17,8 @@ import cv2, numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from pipeline import Config, FacePipeline, detect_all, embed_face  # noqa: E402
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # Windows console is cp1252: Urdu names would crash print()
+from pipeline import Config, FacePipeline, detect_all, embed_face, imread  # noqa: E402
 
 IMG_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
 VID_EXT = (".mp4", ".avi", ".mov", ".mkv", ".webm")
@@ -78,7 +79,8 @@ class Gallery:
             return False, f"looks like existing person '{who}' (score {s:.2f}); not enrolled"
         d = os.path.join(self.path, "faces", _slug(name))
         os.makedirs(d, exist_ok=True)
-        cv2.imwrite(os.path.join(d, f"{int(time.time() * 1000)}_{len(self.names)}.jpg"), crop)
+        # imencode + tofile: cv2.imwrite fails silently on non-ASCII (e.g. Urdu name) folders on Windows
+        cv2.imencode(".jpg", crop)[1].tofile(os.path.join(d, f"{int(time.time() * 1000)}_{len(self.names)}.jpg"))
         self.names.append(name)
         self.embs = np.vstack([self.embs, emb[None]])
         m = self.meta.setdefault(name, {"consent": consent_note, "enrolled_at": time.strftime("%Y-%m-%d %H:%M:%S")})
@@ -106,7 +108,7 @@ class Gallery:
         for n in self.meta:
             d = os.path.join(self.path, "faces", _slug(n))
             for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
-                crop = cv2.imread(os.path.join(d, f))
+                crop = imread(os.path.join(d, f))
                 if crop is not None:
                     names.append(n); embs.append(pipe._embed(crop)[0])
         self.names, self.embs = names, (np.stack(embs) if embs else np.zeros((0, 512), np.float32))
@@ -179,7 +181,7 @@ def main():
             sys.exit("refusing: pass --consent to confirm this person agreed to be enrolled")
         ok = 0
         for p in _images_in(a.images):
-            img = cv2.imread(p)
+            img = imread(p)
             img, faces = detect_all(pipe, img, pad_retry=True) if img is not None else (None, [])
             if len(faces) != 1:
                 print(f"skip {p}: {len(faces)} faces (need exactly 1)"); continue
@@ -193,7 +195,7 @@ def main():
         print(f"enrolled {ok} samples for {a.name}")
     elif a.cmd == "identify":
         for p in _images_in(a.images):
-            img = cv2.imread(p)
+            img = imread(p)
             img, res = identify_frame(pipe, gal, img, thr, pad_retry=True) if img is not None else (None, [])
             print(p, "->", [(r["name"] or "Unknown", round(r["score"], 2)) for r in res] or "no face")
             if a.save:
@@ -216,7 +218,7 @@ def main():
                 n += 1
         else:
             for p in _images_in([a.input]):
-                img = cv2.imread(p)
+                img = imread(p)
                 for r in (identify_frame(pipe, gal, img, thr, pad_retry=True)[1] if img is not None else []):
                     rows.append((p, "", r["name"] or "Unknown", f"{r['score']:.3f}"))
         with open(a.out, "w", newline="", encoding="utf-8") as f:

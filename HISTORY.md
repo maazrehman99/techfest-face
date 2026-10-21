@@ -31,6 +31,25 @@ Pushed to the user's **private personal GitHub** repo `maazrehman99/techfest-fac
 - **Final Wikimedia dataset turned out much smaller than estimated:** 688 free images -> 314 images/56 people (>=3 each) -> 13 people/48 images after cleaning (test split = 1 person, unusable for EER). Cleaning itself works (inspected contact sheets). Options A/B/C in `CLAUDE.md` section 7 await the user's decision.
 - `finetune.py` written (onnx2torch, ArcFace head initialised from class means, BN frozen, last 30% trainable, best epoch by val EER, falls back to the baseline if nothing improves, exports ONNX). Smoke-tested **on CPU only** with stand-in data and then on the real (tiny) manifest (1 epoch: trains, validates, falls back to baseline, exports); the ONNX export needed `dynamo=False` (new PyTorch default requires `onnxscript`) and was then verified identical to the original model.
 
+## 10-21 afternoon: lab PC (RTX 5070 Ti), decision A+B, Windows fixes
+- Repo cloned on a lab PC: Windows 11, **RTX 5070 Ti 16 GB**, driver 596. Only Python 3.4 was installed -> Python 3.12.10
+  (user scope) + `.venv`. Network is very slow and unstable (50 KB/s - 1 MB/s; Ethernet and Wi-Fi alternate being faster;
+  the halfFace S3 server is slow per connection). Wrote a parallel, resumable, connection-switching downloader
+  (`tools/dl_parts.sh`); pip took ~1.5 h; torch cu128 (3.3 GB) ~1.5 h. GPU verified with torch 2.8.0+cu128.
+- A teammate's voice note: the 1500-person Wikimedia re-run left most people with one photo (~90 usable images).
+  **Decision A+B taken** (halfFace person split for training, Wikimedia as Pakistani test). New `build_ft_data.py`;
+  `finetune.py --allow-halfface` (also asserts no train/test identity overlap); `evaluate.py --rec` (evaluate a fine-tuned
+  ONNX on the same held-out people); `finetune.val_eer` now returns the true EER ((FAR+FRR)/2, it returned FAR only).
+- **Windows bugs found by testing and fixed:**
+  (1) `cv2.imread` returns None for non-ASCII paths: a photo in an Urdu-named folder became "no_face / different person"
+  even against itself. `pipeline.imread` (np.fromfile + imdecode) now used by `run.py` and `gallery.py`; gallery saves crops
+  with imencode().tofile (cv2.imwrite also fails silently). (2) Printing Urdu names crashed on the cp1252 console ->
+  stdout reconfigured to UTF-8 in `run.py`/`gallery.py`. (3) `onnx2torch.convert(path)` reopens a NamedTemporaryFile,
+  which Windows forbids -> pass `onnx.load(path)`. (4) Under CUDA autocast the ArcFace head mixed float16/float32 and
+  `scatter` crashed -> head runs in float32. (3) and (4) never showed in the earlier CPU-only smoke test.
+- Report first draft: `report/REPORT_DRAFT.md` ([TBD] = fine-tune numbers).
+- Stopped at 16:30 with halfFace 593/659 MB downloaded (pieces on the lab PC). Continue with `NEXT_STEPS.md`.
+
 ## Dead ends / rejected options (do not redo)
 Self-collected consented dataset (not feasible with three people); LLM-generated Pakistani faces for training; Colab TPU; Commons API directly; AdaFace challenger (never pursued); lenient ArcFace-only label cleaning.
 
