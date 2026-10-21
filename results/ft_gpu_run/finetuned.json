@@ -1,0 +1,57 @@
+{
+ "model": "finetuned",
+ "val_threshold_far1pct": 0.2760657082067261,
+ "val_pairs": 24056,
+ "groups": {
+  "all_test": {
+   "people": 64,
+   "images": 1186,
+   "pairs": 38518,
+   "EER": 0.10935147203904669,
+   "TAR@FAR1%": 0.687522716651955,
+   "acc@val_thr": 0.8680097616698687,
+   "FAR@val_thr": 0.022898385170569604,
+   "FRR@val_thr": 0.24108209148969312
+  },
+  "halfface": {
+   "people": 40,
+   "images": 226,
+   "pairs": 1078,
+   "EER": 0.01484230055658629,
+   "TAR@FAR1%": 0.9795918367346939,
+   "acc@val_thr": 0.9703153988868275,
+   "FAR@val_thr": 0.05194805194805195,
+   "FRR@val_thr": 0.0074211502782931356
+  },
+  "halfface_masked": {
+   "people": 40,
+   "images": 112,
+   "pairs": 212,
+   "EER": 0.018867924528301883,
+   "TAR@FAR1%": 0.9811320754716981,
+   "acc@val_thr": 0.9811320754716981,
+   "FAR@val_thr": 0.03773584905660377,
+   "FRR@val_thr": 0.0
+  },
+  "halfface_unmasked": {
+   "people": 40,
+   "images": 114,
+   "pairs": 220,
+   "EER": 0.0,
+   "TAR@FAR1%": 1.0,
+   "acc@val_thr": 0.9681818181818181,
+   "FAR@val_thr": 0.06363636363636363,
+   "FRR@val_thr": 0.0
+  },
+  "imfdb": {
+   "people": 24,
+   "images": 960,
+   "pairs": 37440,
+   "EER": 0.12454594017094017,
+   "TAR@FAR1%": 0.643215811965812,
+   "acc@val_thr": 0.8607638888888889,
+   "FAR@val_thr": 0.03066239316239316,
+   "FRR@val_thr": 0.24780982905982907
+  }
+ }
+}

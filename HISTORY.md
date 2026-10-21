@@ -50,6 +50,15 @@ Pushed to the user's **private personal GitHub** repo `maazrehman99/techfest-fac
 - Report first draft: `report/REPORT_DRAFT.md` ([TBD] = fine-tune numbers).
 - Stopped at 16:30 with halfFace 593/659 MB downloaded (pieces on the lab PC). Continue with `NEXT_STEPS.md`.
 
+## 10-21 night to 10-22 morning: IMFDB, GPU VM, fine-tune, decision
+- Pulled the lab-PC commit (decision A+B tooling). Found IMFDB (100 Indian actors, 34,512 photos) on the official IIIT Hyderabad page: direct zip, no login, no licence stated. Detector found a face in 85% of a 150-photo sample. `build_imfdb.py` keeps 40 good photos per actor (98 actors usable, 3,920 crops, 778 skipped), splits by actor 59/15/24. `build_ft_data.py` gave the halfFace person split (100/26/40 people).
+- Searches: no public Pakistani identity dataset exists; NADRA data is not available (and would not be consented). Other leads (IMFW, RFW Indian subset, ISGD, IIIT-Delhi sets) need licences or requests; not used. Google Images was not scraped (unlicensed, against terms); Openverse (CC) answered with a bot check and is parked.
+- Google Cloud VM in Mumbai (L4). First run failed (Python venv package missing), second failed (libGL missing), and both times the script deleted the VM before it could be fixed, costing a 14-minute re-upload (about 0.3 MB/s). Lessons: preflight check before the stages, never auto-delete on failure, drive the VM by hand. Then ONNX Runtime GPU would not start on CUDA 12.9 (cublasLt symbol error, four attempts), so the face detector evaluation ran on the VM CPUs; PyTorch (training and crop embeddings) ran on the GPU.
+- Fine-tune (2,919 photos / 159 people, val 741 / 41): val EER 13.24% -> 12.04% at epoch 1, then overfits, early stop at epoch 5. Held-out evaluation: crops EER 12.1% -> 10.9%; bootstrap says the gain is marginal and absent on clean halfFace. Full pipeline: halfFace EER 2.9% -> 3.9% (worse), IMFDB 10.5% -> 10.0%; masked faces better; IMFDB women lose accuracy at the shared threshold (EER unchanged). Wikimedia Pakistani check (13 people, 48 unseen photos): 99.2% vs 99.4%, near perfect, cannot separate the models.
+- **Decision D13: ship the original ArcFace R50** (`rec_onnx` null). VM deleted after download and sha256 check (finetuned.onnx kept locally in `runs/ft1/`, not in git, 174 MB). All numbers in plain words: `report/RESULTS_FOR_REPORT.md`; raw files `results/ft_gpu_run/`.
+- NED organizers announced the consent-process item in the instructions was a mistake (not required).
+- Phone alerts (ntfy) were set up for the VM run (`tools/ntfy.sh`); the topic name lives only in `~/.config/techfest_ntfy_topic`, never in git.
+
 ## Dead ends / rejected options (do not redo)
 Self-collected consented dataset (not feasible with three people); LLM-generated Pakistani faces for training; Colab TPU; Commons API directly; AdaFace challenger (never pursued); lenient ArcFace-only label cleaning.
 

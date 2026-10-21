@@ -22,3 +22,10 @@ data/pk_wiki/*
 !data/halfface/
 data/halfface/*
 !data/halfface/manifest.csv
+# split lists (who is in which split); the photos themselves stay local
+!data/ft_manifest.csv
+!data/halfface/manifest_ft.csv
+!data/imfdb/
+data/imfdb/*
+!data/imfdb/manifest_eval.csv
+data/pk_test/

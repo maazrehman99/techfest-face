@@ -1,0 +1,47 @@
+{
+ "photos": 48,
+ "people": 13,
+ "threshold_original": 0.2899483452306519,
+ "models": {
+  "original": {
+   "no_face_rate": 0.020833333333333332,
+   "threshold_used": 0.2899483452306519,
+   "pairs": 1081,
+   "same": 70,
+   "acc": 0.9916743755781684,
+   "FAR": 0.008902077151335312,
+   "FRR": 0.0,
+   "AUC": 0.9999576091564222,
+   "EER_optimistic": 0.001483679525222552,
+   "TAR_at_FAR1": 1.0,
+   "TAR_same_pairs_with_covering": null,
+   "TAR_same_pairs_plain": 1.0,
+   "n_same_with_covering": 0,
+   "n_same_plain": 70,
+   "acc_95ci": [
+    0.961168948097114,
+    1.0
+   ]
+  },
+  "fine-tuned": {
+   "no_face_rate": 0.020833333333333332,
+   "threshold_used": 0.34966313938958743,
+   "pairs": 1081,
+   "same": 70,
+   "acc": 0.9935245143385754,
+   "FAR": 0.006923837784371909,
+   "FRR": 0.0,
+   "AUC": 0.9999576091564222,
+   "EER_optimistic": 0.0004945598417408506,
+   "TAR_at_FAR1": 1.0,
+   "TAR_same_pairs_with_covering": null,
+   "TAR_same_pairs_plain": 1.0,
+   "n_same_with_covering": 0,
+   "n_same_plain": 70,
+   "acc_95ci": [
+    0.9671044501179786,
+    1.0
+   ]
+  }
+ }
+}

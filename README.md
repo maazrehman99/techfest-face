@@ -20,6 +20,8 @@ Then `python make_halfface_manifest.py`.
 - `run.py` organizer entry point (`verify`, `embed`, `pairs`); threshold in `config.json`
 - `build_ft_data.py` halfFace person split + aligned crops + combined fine-tune manifest (decision A+B); `finetune.py` GPU fine-tune
 - `report/REPORT_DRAFT.md` report draft; `tools/dl_parts.sh` resumable parallel downloader for slow networks
+- `build_imfdb.py` adds IMFDB to the training list; `tools/eval_crops.py`, `tools/boot_ci.py` compare original vs fine-tuned (GPU, bootstrap); `tools/eval_pk_test.py` small Pakistani test; `tools/gcp_finetune.sh` cloud GPU job; `tools/ntfy*.sh` phone alerts; `collect_openverse.py` (parked)
+- **All numbers in plain words: `report/RESULTS_FOR_REPORT.md`; raw results `results/ft_gpu_run/`**
 - **Where we are and how to continue: `NEXT_STEPS.md`**
 - `augment.py` synthetic masks/hijab/cap/glasses/lighting/blur/CCTV
 - `DECISIONS.md` every decision + reasoning (judges care about this: keep it updated)

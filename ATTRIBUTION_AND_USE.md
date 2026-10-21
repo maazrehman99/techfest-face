@@ -17,5 +17,11 @@
 ## halfFace (benchmark)
 CC BY 4.0, "halfFace: A face covering mask dataset of South Asian people", Mendeley Data pk44mkx9vm. Evaluation only; not redistributed in this repo (only its file list).
 
+## IMFDB (added 2026-10-22)
+Indian Movie Face Database, IIIT Hyderabad (S. Setty et al., "Indian Movie Face Database: A Benchmark for Face Recognition Under Wide Variations", NCVPRIPG 2013). Downloaded from the official page https://cvit.iiit.ac.in/projects/IMFDB/ . **The site states no licence or terms.** These are film frames of real actors: used for research training/evaluation only, kept local, not redistributed (only the person split list is in git), cited in the report, to be deleted after the competition. Data is Indian, a South Asian proxy.
+
+## Possible extra test photos (not collected yet)
+Hand-picked photos of Pakistani public figures for a test-only set (`data/pk_test/`, git-ignored): keep the source link of every photo; Creative Commons sources (Openverse, Flickr, Wikimedia) preferred; no bulk download from Google Images (unlicensed, against its terms). Never trained on.
+
 ## Limits to state in the report
 Public figures skew male, urban and elite; results do not represent all Pakistanis. halfFace is South Asian, not Pakistani-specific.
