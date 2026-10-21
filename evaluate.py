@@ -29,25 +29,26 @@ def check_disjoint(df):
 _PIPE = None
 
 
-def _init_worker():
+def _init_worker(rec_onnx=None):
     cv2.setNumThreads(1)
     global _PIPE
-    _PIPE = FacePipeline()
+    _PIPE = FacePipeline(rec_onnx=rec_onnx)
 
 
 def _work(path):
     return _PIPE.analyze(cv2.imread(path))
 
 
-def extract_all(df, root, cache, workers=int(os.environ.get("FACE_WORKERS", "6"))):
+def extract_all(df, root, cache, workers=int(os.environ.get("FACE_WORKERS", "6")), rec_onnx=None):
     """Single expensive pass: every embedding variant + quality stats per image (pickle-cached).
-    Runs `workers` processes with 2 ONNX threads each (one process with all threads was ~10x slower)."""
+    Runs `workers` processes with 2 ONNX threads each (one process with all threads was ~10x slower).
+    rec_onnx: fine-tuned recognizer to evaluate instead of the frozen baseline (use a separate --out, the cache is per folder)."""
     import pickle
     from multiprocessing import Pool
     if os.path.exists(cache):
         return pickle.load(open(cache, "rb"))
     paths = [os.path.join(root, p) for p in df.path]
-    with Pool(workers, initializer=_init_worker) as pool:
+    with Pool(workers, initializer=_init_worker, initargs=(rec_onnx,)) as pool:
         infos = list(tqdm(pool.imap(_work, paths, chunksize=8), total=len(paths), desc="analyze"))
     pickle.dump(infos, open(cache, "wb"))
     return infos
@@ -117,6 +118,7 @@ def main():
     ap.add_argument("--root", default=None, help="folder paths in the manifest are relative to (default: manifest dir)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--ablation", action="store_true")
+    ap.add_argument("--rec", default=None, help="fine-tuned recognizer ONNX (default: frozen baseline w600k_r50)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     df = pd.read_csv(a.manifest)
@@ -129,7 +131,7 @@ def main():
                 ("- alignment (bbox crop)", Config(align=False)),
                 ("+ flip TTA", Config(flip_tta=True)),
                 ("minimal (no align, no filter)", Config(align=False, quality_filter=False))]
-    infos = extract_all(df, root, os.path.join(a.out, "infos.pkl"))
+    infos = extract_all(df, root, os.path.join(a.out, "infos.pkl"), rec_onnx=a.rec)
     results = {}
     for name, cfg in cfgs:
         results[name] = run_config(df, cfg, infos)

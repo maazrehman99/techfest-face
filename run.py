@@ -14,7 +14,8 @@ import cv2, numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from pipeline import Config, FacePipeline  # noqa: E402
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # Windows console is cp1252: Urdu paths would crash print()
+from pipeline import Config, FacePipeline, imread  # noqa: E402
 
 IMG_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
 
@@ -27,7 +28,7 @@ def load_pipeline():
 
 
 def embed_path(pipe, path):
-    r = pipe.process(cv2.imread(path))
+    r = pipe.process(imread(path))
     return r["status"], r.get("emb")
 
 
@@ -64,7 +65,7 @@ def main():
             if path not in cache:
                 cache[path] = embed_path(pipe, os.path.join(a.root, path))
             return cache[path]
-        with open(a.csv, newline="") as fi, open(a.out, "w", newline="") as fo:
+        with open(a.csv, newline="", encoding="utf-8-sig") as fi, open(a.out, "w", newline="", encoding="utf-8") as fo:
             rd = csv.DictReader(fi)
             c1, c2 = ("img1", "img2") if {"img1", "img2"} <= set(rd.fieldnames) else rd.fieldnames[:2]
             wr = csv.writer(fo); wr.writerow(["img1", "img2", "score", "decision", "status1", "status2"])
