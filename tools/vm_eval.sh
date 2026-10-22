@@ -3,7 +3,7 @@
 #   bash tools/vm_eval.sh setup           # one-time (tonight): create VM if missing, upload project + models, build venv, test
 #   bash tools/vm_eval.sh run group10 ~/lab_pack   # lab day: start VM, upload pack, run, download group10.npz into submission/
 #   bash tools/vm_eval.sh stop            # stop the VM (stops GPU/CPU billing, disk stays)
-# Needs: `gcloud auth login` done. Override with env: PROJECT ZONE VM MACHINE GPU=1 (use ONNX GPU; off by default, see note).
+# Needs: `gcloud auth login` done. Override with env: PROJECT ZONE VM MACHINE CPU=1 (skip the GPU).
 set -euo pipefail
 PROJECT="${PROJECT:-r2r-coros-dev}"
 ZONE="${ZONE:-asia-south1-b}"
@@ -51,8 +51,13 @@ run)
   tar -C "$PACK" -czf /tmp/vm_lab.tgz train test
   "${G[@]}" compute scp /tmp/vm_lab.tgz "$VM":~/ --zone "$ZONE" --quiet
   "${SSH[@]}" "set -e; rm -rf lab && mkdir lab && tar -xzf vm_lab.tgz -C lab
-    cd techfest-face/submission && . ../.venv/bin/activate
-    ${GPU:+FACE_PROVIDER=cuda} python make_submission.py '$GROUP' ~/lab"
+    cd techfest-face/submission
+    # GPU first (.venv-gpu, tested: same embeddings as CPU, ~6x faster); CPU venv if the GPU run fails or CPU=1 is set
+    if [ -z '${CPU:-}' ] && [ -d ../.venv-gpu ] && (. ../.venv-gpu/bin/activate && FACE_PROVIDER=cuda SUB_WORKERS=1 python make_submission.py '$GROUP' ~/lab); then
+      echo '== ran on the GPU'
+    else
+      echo '== running on the CPU'; . ../.venv/bin/activate && python make_submission.py '$GROUP' ~/lab
+    fi"
   "${G[@]}" compute scp "$VM":~/techfest-face/submission/"$GROUP".npz "$ROOT/submission/" --zone "$ZONE" --quiet
   "$ROOT/.venv/bin/python" -I - "$ROOT/submission/$GROUP.npz" <<'EOF'
 import sys, numpy as np
@@ -68,4 +73,4 @@ stop)
   ;;
 *) sed -n 2,7p "$0"; exit 1 ;;
 esac
-# Note: ONNX Runtime GPU crashed on CUDA 12.9 earlier in this project, so the VM runs on CPU unless GPU=1 is set and works.
+# Note: .venv-gpu is a second venv made on the VM by hand (onnxruntime-gpu 1.23 + pip nvidia cu12 libs; do NOT pip uninstall onnxruntime there, it shares files).

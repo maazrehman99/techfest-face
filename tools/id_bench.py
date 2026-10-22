@@ -13,6 +13,13 @@ maxp = int(sys.argv[4]) if len(sys.argv) > 4 else 10**9
 rows = [r for r in csv.DictReader(open(man, encoding="utf-8")) if r.get("split", split) == split]
 ids = sorted({r["identity"] for r in rows})[:maxp]
 rows = [r for r in rows if r["identity"] in ids]
+cap = int(os.environ.get("CAP", "0"))
+if cap:
+    seen = {}; keep = []
+    for r in rows:
+        seen[r["identity"]] = seen.get(r["identity"], 0) + 1
+        if seen[r["identity"]] <= cap: keep.append(r)
+    rows = keep
 
 pipe = FacePipeline()
 r100 = get_model("models/glintr100.onnx", providers=["CPUExecutionProvider"]); r100.prepare(ctx_id=-1)
@@ -34,7 +41,9 @@ for r in rows:
     for k, m in (("r50", pipe.rec), ("r100", r100)):
         e = m.get_feat([c, c[:, ::-1].copy()]); E[k].append(_unit(e[0] + e[1]))
     lab.append(r["identity"])
-lab = np.array(lab); print(f"{len(ids)} people, {len(lab)} imgs, no-face {miss}")
+lab = np.array(lab)
+if os.environ.get("SAVE"): np.savez(os.environ["SAVE"], lab=lab, r50=np.array(E["r50"]), r100=np.array(E["r100"]))
+print(f"{len(ids)} people, {len(lab)} imgs, no-face {miss}")
 E = {k: np.array(v) for k, v in E.items()}
 E["avg"] = np.hstack([E["r50"], E["r100"]]) / np.sqrt(2)
 for k, X in E.items():
