@@ -58,3 +58,9 @@ python gallery.py reindex                          # after swapping in the fine-
 ```
 `identify_threshold` in config.json (default 0.40) must be tuned on the Pakistani eval set. Quick check on halfFace
 (3 unmasked enrolment photos/person, 15 people): 33/37 masked probes correct, 4 Unknown, 0 wrong.
+
+## Contributors
+
+The team built this together in joint working sessions.
+
+- Shaikh Muhammad Zain ([@ZainDev04](https://github.com/ZainDev04)): face recognition pipeline and fine-tuning
