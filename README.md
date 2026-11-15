@@ -28,6 +28,14 @@ Then `python make_halfface_manifest.py`.
 - `REQUESTS_TO_SEND.md` questions for organizers; BUPT dataset request
 - `memory/` Claude Code project notes (context for whoever picks this up)
 
+## Demo video maker (names on faces in a video)
+```
+pip install -r demo/requirements.txt
+python demo/app.py        # browser interface at http://127.0.0.1:7860
+python demo/facevideo.py --people PEOPLE_DIR --video in.mp4 --out out.mp4 --consent     # same thing from the command line
+```
+Offline, not live: about 7 minutes of processing per minute of video on a 4-thread laptop CPU. Uses ArcFace R50 only, not the R50 + R100 competition ensemble. Names must be in English letters (Urdu text renders garbled on the video). Only name people who agreed.
+
 ## Run the baseline eval (CPU, ~1 img/s per 12 cores)
 ```
 FACE_THREADS=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python evaluate.py \

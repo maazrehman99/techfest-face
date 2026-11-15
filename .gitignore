@@ -29,3 +29,8 @@ data/halfface/*
 data/imfdb/*
 !data/imfdb/manifest_eval.csv
 data/pk_test/
+
+# demo video maker: uploads and results stay local
+demo/work/
+*.mp4
+gallery_inbox/
