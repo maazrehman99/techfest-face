@@ -23,7 +23,9 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, ROOT)
 os.environ.setdefault("FACE_THREADS", "2")
 INBOX = os.path.join(ROOT, "gallery_inbox")
-PORT = 7861
+PORT = int(os.environ.get("PORT", 7861))
+import hfsync      # the online copy keeps its data in a private Hugging Face dataset; does nothing on the laptop
+hfsync.pull(ROOT)
 MAX_PHOTOS, MAX_SUBMISSIONS, MAX_SIDE = 6, 20, 1600
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024
@@ -32,6 +34,9 @@ Image.MAX_IMAGE_PIXELS = 50_000_000
 
 def load_token(fname=".token"):
     os.makedirs(INBOX, exist_ok=True)
+    env = os.environ.get({".token": "UPLOAD_TOKEN", ".check_token": "CHECK_TOKEN", ".admin_token": "ADMIN_TOKEN"}[fname])
+    if env:      # online, the link codes come from hidden Space secrets
+        return env.strip()
     p = os.path.join(INBOX, fname)
     if not os.path.exists(p):
         with open(p, "w", encoding="utf-8") as f:
@@ -43,6 +48,12 @@ TOKEN, CHECK, ADMIN = load_token(), load_token(".check_token"), load_token(".adm
 busy = threading.Lock()        # one user of the models at a time; extra check requests are told to retry
 load_lock, enroll_lock = threading.Lock(), threading.Lock()
 M, last_seen, sent_by = {}, {}, {}
+
+
+def client_ip():
+    """The visitor's address behind Cloudflare (laptop) or Hugging Face's proxy, used only for the per-device limits."""
+    fwd = request.headers.get("X-Forwarded-For", "")
+    return request.headers.get("Cf-Connecting-IP") or (fwd.split(",")[-1].strip() if fwd else request.remote_addr)
 RECEIPTS = os.path.join(INBOX, ".receipts.json")     # submission id -> name, so a person can see their own status only
 
 
@@ -69,7 +80,7 @@ def frame(token):
     photo = request.args.get("photo") == "1"     # an uploaded picture: look harder, allow more faces
     if (request.content_length or 0) > 6 * 1024 * 1024:
         abort(413)
-    who, now = request.headers.get("Cf-Connecting-IP") or request.remote_addr, time.time()
+    who, now = client_ip(), time.time()
     if now - last_seen.get(who, 0) < 0.4:
         return jsonify(retry=True), 429
     if len(last_seen) > 500:
@@ -171,6 +182,7 @@ def reject(token, rid):
                 json.dump(receipts, out, ensure_ascii=False)
     finally:
         enroll_lock.release()
+    hfsync.push(ROOT)
     return jsonify(message=f"{name} was rejected. Their photos were deleted.")
 
 
@@ -185,7 +197,9 @@ def enroll(token):
     try:
         from live import enroll_inbox
         m = models()
-        return jsonify(message=enroll_inbox(SimpleNamespace(pipe=m["pipe"], gal=m["gal"], thr=m["thr"], pipe_lock=busy)))
+        msg = enroll_inbox(SimpleNamespace(pipe=m["pipe"], gal=m["gal"], thr=m["thr"], pipe_lock=busy))
+        hfsync.push(ROOT)
+        return jsonify(message=msg)
     finally:
         enroll_lock.release()
 
@@ -252,7 +266,7 @@ def page(token):
 @app.post("/<token>/send")
 def send(token):
     check(token)
-    who, now = request.headers.get("Cf-Connecting-IP") or request.remote_addr, time.time()
+    who, now = client_ip(), time.time()
     recent = [t for t in sent_by.get(who, []) if now - t < 600]
     if len(recent) >= 5:      # the address is now public, so one device cannot fill the waiting list
         return jsonify(error="Too many sends from this device. Please try again in a few minutes."), 429
@@ -293,6 +307,7 @@ def send(token):
         with open(RECEIPTS, "w", encoding="utf-8") as out:
             json.dump(receipts, out, ensure_ascii=False)
     sent_by[who] = recent + [now]
+    hfsync.push(ROOT)
     return jsonify(saved=len(photos), skipped=bad, id=rid, name=name)
 
 
@@ -540,4 +555,4 @@ PAGE, CHECK_PAGE, ADMIN_PAGE = (x.replace("<!--HEAD-->", HEAD).replace("<!--NAV-
 if __name__ == "__main__":
     print(f"public page: http://127.0.0.1:{PORT}/{CHECK}", flush=True)
     print(f"enrol page:  http://127.0.0.1:{PORT}/{ADMIN}", flush=True)
-    app.run("127.0.0.1", PORT, threaded=True)
+    app.run(os.environ.get("HOST", "127.0.0.1"), PORT, threaded=True)
