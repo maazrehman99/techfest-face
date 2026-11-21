@@ -1,68 +1,112 @@
-# TechFest Face Recognition Challenge (Pakistani context)
+# Face recognition for Pakistani faces
 
-Nemo's Deep Dive, Round 2 "Every Fish Has a Face" (NED CSIT Tech Fest '26).
-**Report due 2026-10-22. Hidden benchmark 2026-10-23.**
+**Runner-up out of 50 university teams** in Nemo's Deep Dive, the computer vision track of AI Odyssey at
+NED CSIT TechFest '26 (Round 2: "Every Fish Has a Face").
 
-Pipeline: detect -> align -> quality filter -> embed (InsightFace ArcFace w600k_r50) -> match + threshold.
-Must run offline on CPU, never crash on a no-face image.
+The system detects every face in a photo, straightens it, and decides who it is: either "same person or not" for two photos,
+or a name (or "Unknown") against a list of people who chose to be enrolled. It runs fully offline on a normal laptop CPU
+and never crashes on a photo with no face in it.
 
-## Setup
+![Pipeline and headline results](docs/images/pipeline_and_results.png)
+
+## How it works
+
+| Step | What happens |
+|---|---|
+| 1. Detect | SCRFD-10G finds every face and 5 landmarks (eyes, nose, mouth corners) |
+| 2. Align | Each face is rotated and cropped to the same 112 x 112 pose |
+| 3. Filter | Crops that are too blurry, dark or small are dropped |
+| 4. Embed | ArcFace (ResNet-50) turns each face into 512 numbers |
+| 5. Match | Cosine similarity against a threshold picked on validation data |
+
+The model itself is never retrained per person. Someone is "remembered" by storing their embeddings, so adding a person
+takes seconds.
+
+## Results
+
+Measured on people the model never saw during any tuning. Thresholds were picked on separate validation people.
+
+| Test set | Accuracy | Equal error rate (EER) | AUC |
+|---|---|---|---|
+| halfFace, 40 held-out South Asian people | 97.1% | 2.9% | 0.991 |
+| IMFDB, 24 held-out actors (movie frames, hard light and pose) | 87.5% | 10.5% | 0.955 |
+| 13 Pakistani public figures (Wikimedia photos) | 99.2% | | 0.99996 |
+
+On halfFace, unmasked faces scored 98.2% and masked faces 94.3%.
+
+![Error rate by pipeline step](docs/images/error_rate_by_step.png)
+
+**Alignment matters most.** Removing it raises the error from 2.9% to 25.4%.
+
+**Fine-tuning didn't clearly help.** We fine-tuned ArcFace on about 2,900 photos of 159 people on a cloud GPU. It did a
+little better on masked faces and movie frames, and a little worse on clean photos, so we kept the original model. Every
+number, including the negative results, is in [`report/RESULTS_FOR_REPORT.md`](report/RESULTS_FOR_REPORT.md), and the
+full report is [`report/Face_Recognition_Report.pdf`](report/Face_Recognition_Report.pdf).
+
+## Live demo
+
+![Check page](docs/images/demo_check_page.png)
+
+`demo/collect.py` serves a small web page that anyone holding the link can open on a phone or laptop. It has two tabs:
+- **Check:** your camera or an uploaded photo. Every face gets a name or "Unknown". Pictures are checked and never saved.
+- **Enroll:** turn your head and the page takes a few photos on its own. Nobody is added until the team approves the request
+  on a separate private page.
+
+The link isn't permanently online, because it runs on a team member's laptop. Ask the team for a demo.
+
+## Run it yourself
+
 ```
-python -m venv .venv && . .venv/bin/activate
+python -m venv .venv
+.venv\Scripts\activate            # Linux or Mac: . .venv/bin/activate
 pip install -r requirements.txt
 ```
-Models (`models/`) and datasets (`data/`) are NOT in git (651MB / 2GB). Get buffalo_l from InsightFace
-(it auto-downloads to ~/.insightface/models) and copy to `models/`. halfFace: Mendeley pk44mkx9vm (CC BY 4.0).
-Then `python make_halfface_manifest.py`.
 
-## Files
-- `pipeline.py` pipeline with toggleable stages; `evalkit.py` / `evaluate.py` metrics (acc/P/R/F1/ROC/FAR/FRR/EER), ablation, per-group
-- `run.py` organizer entry point (`verify`, `embed`, `pairs`); threshold in `config.json`
-- `build_ft_data.py` halfFace person split + aligned crops + combined fine-tune manifest (decision A+B); `finetune.py` GPU fine-tune
-- `report/REPORT_DRAFT.md` report draft; `tools/dl_parts.sh` resumable parallel downloader for slow networks
-- `build_imfdb.py` adds IMFDB to the training list; `tools/eval_crops.py`, `tools/boot_ci.py` compare original vs fine-tuned (GPU, bootstrap); `tools/eval_pk_test.py` small Pakistani test; `tools/gcp_finetune.sh` cloud GPU job; `tools/ntfy*.sh` phone alerts; `collect_openverse.py` (parked)
-- **All numbers in plain words: `report/RESULTS_FOR_REPORT.md`; raw results `results/ft_gpu_run/`**
-- **Where we are and how to continue: `NEXT_STEPS.md`**
-- `augment.py` synthetic masks/hijab/cap/glasses/lighting/blur/CCTV
-- `DECISIONS.md` every decision + reasoning (judges care about this: keep it updated)
-- `REQUESTS_TO_SEND.md` questions for organizers; BUPT dataset request
-- `memory/` Claude Code project notes (context for whoever picks this up)
+The face models aren't stored in this repo. Download InsightFace `buffalo_l`
+(https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip) and unzip it into `models/buffalo_l/`.
 
-## Demo video maker (names on faces in a video)
 ```
-pip install -r demo/requirements.txt
-python demo/app.py        # browser interface at http://127.0.0.1:7860
-python demo/facevideo.py --people PEOPLE_DIR --video in.mp4 --out out.mp4 --consent     # same thing from the command line
-```
-Offline, not live: about 7 minutes of processing per minute of video on a 4-thread laptop CPU. Uses ArcFace R50 only, not the R50 + R100 competition ensemble. Names must be in English letters (Urdu text renders garbled on the video). Only name people who agreed.
-
-## Run the baseline eval (CPU, ~1 img/s per 12 cores)
-```
-FACE_THREADS=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python evaluate.py \
-  --manifest data/halfface/manifest.csv --out results/halfface --ablation
-```
-
-## Team tasks (pick one, tell the group, commit on a branch)
-| # | Task | Output |
-|---|------|--------|
-| 1 | Send organizer questions + BUPT request (`REQUESTS_TO_SEND.md`) | replies saved in `DECISIONS.md` |
-| 2 | Run halfFace baseline eval, then LFW sanity | `results/halfface/`, numbers for report |
-| 3 | Training data: IMFDB / BUPT-Indian / whatever organizers allow; consent notes | `data/train/` manifest + `DECISIONS.md` entry |
-| 4 | Colab fine-tune notebook (ArcFace head on our data, export ONNX) | `finetune.ipynb`, new `.onnx` |
-| 5 | Pick threshold from EER/FAR target, write `config.json`, test `run.py` on a clean venv + no-face images | `config.json`, test log |
-| 6 | Report + slides (honest: data is South Asian proxy, not Pakistani-specific) | `report/` |
-
-Order that matters: 2 -> 5 can start now; 3 -> 4 is the critical path (no GPU locally, use Colab/Kaggle).
-
-## Face memory (enroll once, recognise forever, no retraining)
-The embedding model is frozen; people are "remembered" as embeddings in `gallery/`. Every enrolment needs `--consent`.
-```
+python run.py verify --a photo1.jpg --b photo2.jpg                 # same person or not, with a score
 python gallery.py enroll --name "Ali Khan" --images photos/ali --consent
-python gallery.py identify --images group.jpg --save out/
-python gallery.py scan --input cctv.mp4 --out appearances.csv --every 1
-python gallery.py remove --name "Ali Khan"        # erase a person
-python live.py --source 0                          # browser UI at http://127.0.0.1:8000 (enroll + live labels)
-python gallery.py reindex                          # after swapping in the fine-tuned recognizer
+python gallery.py identify --images group.jpg --save out/          # names or "Unknown" on every face
+python gallery.py remove --name "Ali Khan"                         # erase a person
+python live.py --source 0                                          # webcam page at http://127.0.0.1:8000
 ```
-`identify_threshold` in config.json (default 0.40) must be tuned on the Pakistani eval set. Quick check on halfFace
-(3 unmasked enrolment photos/person, 15 people): 33/37 masked probes correct, 4 Unknown, 0 wrong.
+
+Demo pages: `pip install -r demo/requirements.txt`, then `python demo/collect.py` (live check and enroll page) or
+`python demo/app.py` (puts names on faces in a video file).
+
+## What's in the repo
+
+| Path | What it is |
+|---|---|
+| `pipeline.py` | The pipeline. Each stage can be switched off to measure what it's worth |
+| `evaluate.py`, `evalkit.py` | Accuracy, precision, recall, F1, ROC, FAR/FRR, EER, results by group, ablation |
+| `run.py` | Command-line entry point used for the competition benchmark |
+| `gallery.py`, `live.py` | Enroll people and recognise them in photos, videos or a webcam |
+| `augment.py` | Synthetic masks, hijab, dupatta, cap, turban, beard, blur and CCTV-style damage for training |
+| `finetune.py`, `build_ft_data.py`, `build_imfdb.py` | The fine-tuning experiment and its data split |
+| `collect_wikimedia.py`, `process_wikimedia.py` | Builds the small Pakistani test set from free-licence Wikipedia photos |
+| `submission/` | The script used on competition day |
+| `demo/` | Live web demo and video maker |
+| `results/` | Raw result files and charts |
+| `report/` | Final report and all numbers in plain words |
+| `notes/` | The team's working notes: decisions and reasons, history, handoff docs |
+
+## Data and licences
+
+- **halfFace** (Mendeley pk44mkx9vm, CC BY 4.0): 166 South Asian people, masked and unmasked. A South Asian stand-in,
+  not a Pakistani-only set.
+- **IMFDB** (IIIT Hyderabad): Indian film actors. The website states no licence, so the photos stay local. Only the list of
+  who is in which split is in this repo.
+- **Wikimedia**: free-licence photos of Pakistani public figures. Each photo's licence and author is listed in
+  `data/pk_wiki/records.jsonl`.
+
+More detail is in [`ATTRIBUTION_AND_USE.md`](ATTRIBUTION_AND_USE.md).
+
+The InsightFace `buffalo_l` models (SCRFD and ArcFace) are licensed for **non-commercial research only**. This is a student
+project, not a product. Don't use it to identify people who haven't agreed to it.
+
+## Team
+
+Syed Mohammad Huzaifa, Maaz Rehman and Shaikh Muhammad Zain.

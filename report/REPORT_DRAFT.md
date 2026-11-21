@@ -3,7 +3,7 @@
 **NED CSIT Tech Fest '26, Nemo's Deep Dive, Round 2** | Team: [team name] | Members: [names] | Date: 22 October 2026
 
 > DRAFT. Everything marked **[TBD]** is filled in after the fine-tune and the held-out re-evaluation run.
-> Sources for every number: `results/halfface/`, `results/aug/`, `DECISIONS.md`, `HISTORY.md`.
+> Sources for every number: `results/halfface/`, `results/aug/`, `notes/DECISIONS.md`, `notes/HISTORY.md`.
 
 ---
 

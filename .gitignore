@@ -34,3 +34,8 @@ data/pk_test/
 demo/work/
 *.mp4
 gallery_inbox/
+
+# personal guide and draft report copies (kept local)
+GUIDE.*
+report/REPORT_V2.html
+report/Face_Recognition_Report_v2.pdf
