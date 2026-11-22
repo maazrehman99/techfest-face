@@ -1,66 +1,128 @@
-# TechFest Face Recognition Challenge (Pakistani context)
+# Face recognition for Pakistani faces
 
-Nemo's Deep Dive, Round 2 "Every Fish Has a Face" (NED CSIT Tech Fest '26).
-**Report due 2026-10-22. Hidden benchmark 2026-10-23.**
+Offline face verification and identification that runs on a normal CPU. Built for Round 2 of Nemo's Deep Dive ("Every Fish Has a Face") at NED CSIT TechFest '26, where the team finished runner-up.
 
-Pipeline: detect -> align -> quality filter -> embed (InsightFace ArcFace w600k_r50) -> match + threshold.
-Must run offline on CPU, never crash on a no-face image.
+The task was to adapt a pretrained face recognition model to Pakistani faces, including people wearing a dupatta, hijab, cap, turban or mask, and to evaluate it honestly. No public identity-labelled Pakistani face dataset exists, so the work uses South Asian datasets as a proxy and a small set of Pakistani public figures as a final check.
+
+Full write-up: [docs/Face_Recognition_Report.pdf](docs/Face_Recognition_Report.pdf)
+
+## Results
+
+Held-out people only. Thresholds were picked on a separate validation split, never on the test set.
+
+| Test set | Accuracy | EER | AUC |
+|---|---|---|---|
+| halfFace, 40 held-out South Asian people | 97.1% | 2.9% | 0.991 |
+| halfFace, same people, without face alignment | 74.6% | 25.4% | 0.814 |
+| IMFDB, 24 held-out Indian film actors (hard pose and light) | 87.5% | 10.5% | 0.955 |
+| 13 Pakistani public figures, 48 unseen Wikimedia photos | 99.2% | not measured | 1.000 |
+
+Three findings:
+
+- Face alignment matters most. Without it the error rate rises from 2.9% to 25.4%.
+- Fine-tuning ArcFace on about 3,000 South Asian photos (Google Cloud L4 GPU) did not clearly help. It improved hard movie frames and masked faces a little, made clean photos worse (EER 2.9% to 3.9%), and a bootstrap over people showed the gain was marginal. The original model ships, and the fine-tune is reported as a mixed result.
+- Masks, cloth face covers, beards and CCTV-quality images lower the match score the most. A dupatta, turban or cap barely changes it, because the face itself stays visible.
+
+Every number, per-group breakdowns (mask, pose, gender, blur, face size) and the fine-tuning curve are in [docs/RESULTS.md](docs/RESULTS.md).
+
+## How it works
+
+```
+image -> detect face (SCRFD-10G, 5 landmarks) -> quality check (blur, light, size)
+      -> align to 112x112 -> ArcFace ResNet-50 embedding (512 numbers)
+      -> cosine similarity -> threshold
+```
+
+The same model serves two modes:
+
+- Verify: two photos in, "same person" or "different person" out, with a score. This was the benchmark mode.
+- Face memory: enrol a person once (with their consent), then name them or say "Unknown" in photos, video or a live webcam feed, with no retraining.
+
+Design choices and the reasoning behind each one are in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Setup
+
+Tested with Python 3.12.
+
 ```
-python -m venv .venv && . .venv/bin/activate
+python -m venv .venv
+.venv/Scripts/activate        # Windows
+source .venv/bin/activate     # Linux / macOS
 pip install -r requirements.txt
 ```
-Models (`models/`) and datasets (`data/`) are NOT in git (651MB / 2GB). Get buffalo_l from InsightFace
-(it auto-downloads to ~/.insightface/models) and copy to `models/`. halfFace: Mendeley pk44mkx9vm (CC BY 4.0).
-Then `python make_halfface_manifest.py`.
 
-## Files
-- `pipeline.py` pipeline with toggleable stages; `evalkit.py` / `evaluate.py` metrics (acc/P/R/F1/ROC/FAR/FRR/EER), ablation, per-group
-- `run.py` organizer entry point (`verify`, `embed`, `pairs`); threshold in `config.json`
-- `build_ft_data.py` halfFace person split + aligned crops + combined fine-tune manifest (decision A+B); `finetune.py` GPU fine-tune
-- `report/REPORT_DRAFT.md` report draft; `tools/dl_parts.sh` resumable parallel downloader for slow networks
-- `build_imfdb.py` adds IMFDB to the training list; `tools/eval_crops.py`, `tools/boot_ci.py` compare original vs fine-tuned (GPU, bootstrap); `tools/eval_pk_test.py` small Pakistani test; `tools/gcp_finetune.sh` cloud GPU job; `tools/ntfy*.sh` phone alerts; `collect_openverse.py` (parked)
-- **All numbers in plain words: `report/RESULTS_FOR_REPORT.md`; raw results `results/ft_gpu_run/`**
-- **Where we are and how to continue: `NEXT_STEPS.md`**
-- `augment.py` synthetic masks/hijab/cap/glasses/lighting/blur/CCTV
-- `DECISIONS.md` every decision + reasoning (judges care about this: keep it updated)
-- `REQUESTS_TO_SEND.md` questions for organizers; BUPT dataset request
-- `memory/` Claude Code project notes (context for whoever picks this up)
+The model weights are not in the repo. Install InsightFace's `buffalo_l` pack (it downloads to `~/.insightface/models/buffalo_l` on first use) and copy it to `models/buffalo_l/`.
 
-## Run the baseline eval (CPU, ~1 img/s per 12 cores)
+## Usage
+
+Verify two photos:
+
 ```
-FACE_THREADS=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python evaluate.py \
-  --manifest data/halfface/manifest.csv --out results/halfface --ablation
+python run.py verify --a person1.jpg --b person2.jpg
 ```
 
-## Team tasks (pick one, tell the group, commit on a branch)
-| # | Task | Output |
-|---|------|--------|
-| 1 | Send organizer questions + BUPT request (`REQUESTS_TO_SEND.md`) | replies saved in `DECISIONS.md` |
-| 2 | Run halfFace baseline eval, then LFW sanity | `results/halfface/`, numbers for report |
-| 3 | Training data: IMFDB / BUPT-Indian / whatever organizers allow; consent notes | `data/train/` manifest + `DECISIONS.md` entry |
-| 4 | Colab fine-tune notebook (ArcFace head on our data, export ONNX) | `finetune.ipynb`, new `.onnx` |
-| 5 | Pick threshold from EER/FAR target, write `config.json`, test `run.py` on a clean venv + no-face images | `config.json`, test log |
-| 6 | Report + slides (honest: data is South Asian proxy, not Pakistani-specific) | `report/` |
+Score a list of pairs (CSV with two image path columns):
 
-Order that matters: 2 -> 5 can start now; 3 -> 4 is the critical path (no GPU locally, use Colab/Kaggle).
-
-## Face memory (enroll once, recognise forever, no retraining)
-The embedding model is frozen; people are "remembered" as embeddings in `gallery/`. Every enrolment needs `--consent`.
 ```
-python gallery.py enroll --name "Ali Khan" --images photos/ali --consent
+python run.py pairs --csv pairs.csv --out scores.csv
+```
+
+Face memory:
+
+```
+python gallery.py enroll   --name "Ali Khan" --images photos/ali --consent
 python gallery.py identify --images group.jpg --save out/
-python gallery.py scan --input cctv.mp4 --out appearances.csv --every 1
-python gallery.py remove --name "Ali Khan"        # erase a person
-python live.py --source 0                          # browser UI at http://127.0.0.1:8000 (enroll + live labels)
-python gallery.py reindex                          # after swapping in the fine-tuned recognizer
+python gallery.py scan     --input video.mp4 --out appearances.csv
+python gallery.py remove   --name "Ali Khan"
+python live.py --source 0      # webcam demo at http://127.0.0.1:8000
 ```
-`identify_threshold` in config.json (default 0.40) must be tuned on the Pakistani eval set. Quick check on halfFace
-(3 unmasked enrolment photos/person, 15 people): 33/37 masked probes correct, 4 Unknown, 0 wrong.
 
-## Contributors
+An image with no detectable face returns `no_face` and a rejection. It never crashes the run. The decision thresholds live in `config.json`.
 
-The team built this together in joint working sessions.
+Evaluate on a labelled dataset (ROC, EER, TAR at fixed FAR, per-group results, stage ablation):
 
-- Shaikh Muhammad Zain ([@ZainDev04](https://github.com/ZainDev04)): face recognition pipeline and fine-tuning
+```
+python evaluate.py --manifest data/halfface/manifest.csv --out results/halfface --ablation
+```
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `pipeline.py` | Detection, quality filter, alignment and embedding, each stage switchable |
+| `run.py` | Command-line entry point for verification |
+| `gallery.py`, `live.py` | Face memory and the live webcam demo |
+| `evalkit.py`, `evaluate.py` | Metrics, ablation and per-group evaluation |
+| `augment.py` | Synthetic coverings (mask, hijab, dupatta, cap, turban, beard) and image damage (blur, low light, CCTV) |
+| `build_ft_data.py`, `build_imfdb.py`, `finetune.py` | Person-disjoint splits and GPU fine-tuning, exported to ONNX |
+| `collect_wikimedia.py`, `process_wikimedia.py` | Collection and cleaning of freely licensed photos of Pakistani public figures |
+| `submission/` | Identification script used on the competition's lab day |
+| `tools/` | Cloud GPU job, bootstrap tests, identification benchmark |
+| `data/` | Split lists only (which person is in which split). No face images. |
+| `results/` | Raw evaluation output (JSON, CSV, ROC plots) |
+| `docs/` | Report, full results, design decisions, data sources |
+
+## Data and ethics
+
+- halfFace (CC BY 4.0) and IMFDB (IIIT Hyderabad) are used as South Asian proxies. Neither is Pakistani-specific.
+- The Pakistani check uses freely licensed Wikimedia photos of adult public figures. A free licence is not the person's consent, so these photos are not published here and were not used to train the GPU model.
+- People are split by identity: nobody appears in both training and test data.
+- Face memory refuses to enrol anyone without the `--consent` flag, and `gallery.py remove` erases a person.
+- The pretrained InsightFace weights are licensed for non-commercial research only.
+
+Sources and licences: [docs/DATA.md](docs/DATA.md).
+
+## Limitations
+
+- Only about 3,000 training photos of 159 people, too few to improve a model trained on millions of faces.
+- About 90% of halfFace people are men, so results for women are uncertain.
+- The Pakistani test is small and easy (clear portraits). A harder Pakistani test with real coverings is still needed.
+- Unknown-person rejection in face memory has not been measured yet. The identification threshold (0.40) is a conservative default.
+
+## Team
+
+Built together by:
+
+- Maaz Rehman ([@maazrehman99](https://github.com/maazrehman99))
+- Shaikh Muhammad Zain ([@ZainDev04](https://github.com/ZainDev04))
+- Syed Mohammad Huzaifa ([@huzaifaguru](https://github.com/huzaifaguru))

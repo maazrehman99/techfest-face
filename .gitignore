@@ -11,14 +11,9 @@ runs/
 *.pth
 logs_*
 *.zip
-# data: only the processed Pakistani set is shared through git (small aligned crops + licence/author records).
-# halfFace (1.4 GB, public Mendeley download) and raw 640px downloads stay out; the collector can re-download them.
+# data: no face images are shared through git, only the split lists (who is in which split).
+# halfFace, IMFDB and the Wikimedia photos are downloaded locally (see docs/DATA.md).
 data/*
-!data/pk_wiki/
-data/pk_wiki/*
-!data/pk_wiki/crops/
-!data/pk_wiki/manifest.csv
-!data/pk_wiki/records.jsonl
 !data/halfface/
 data/halfface/*
 !data/halfface/manifest.csv

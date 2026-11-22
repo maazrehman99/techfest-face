@@ -5,7 +5,7 @@
 
 Why: halfFace + Wikimedia give only ~600 training images. IMFDB has 100 identities x 200-620 images (about 32% women),
 so a capped sample of it is the largest South Asian identity set we can get quickly. It is Indian film actors, a South
-Asian PROXY, not Pakistani data. The site states no licence: cite it and keep it local (ATTRIBUTION_AND_USE.md).
+Asian PROXY, not Pakistani data. The site states no licence: cite it and keep it local (docs/DATA.md).
 
 Split: per actor, stratified by gender, 60% train / 15% val / 25% test (seed 0), same rule as halfFace. Identities are
 prefixed "imfdb_" so they never collide with halfFace ids (p001...).
