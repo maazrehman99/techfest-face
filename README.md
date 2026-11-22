@@ -119,6 +119,10 @@ Sources and licences: [docs/DATA.md](docs/DATA.md).
 - The Pakistani test is small and easy (clear portraits). A harder Pakistani test with real coverings is still needed.
 - Unknown-person rejection in face memory has not been measured yet. The identification threshold (0.40) is a conservative default.
 
+## License
+
+The code is under the [MIT License](LICENSE). The InsightFace `buffalo_l` model weights it downloads are licensed separately, for non-commercial research only.
+
 ## Team
 
 Built together by:
