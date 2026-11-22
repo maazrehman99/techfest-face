@@ -18,7 +18,7 @@ CMD="${1:-}"; PROJECT="${2:-}"
 [ -n "$CMD" ] && [ -n "$PROJECT" ] || { sed -n 2,6p "$0"; exit 1; }
 
 ZONE="${ZONE:-asia-south1-b}"                # Mumbai, L4 available (override with ZONE=...)
-VM="${VM:-maaz-dev-vm}"
+VM="${VM:-techfest-ft-vm}"
 MACHINE="${MACHINE:-g2-standard-8}"        # g2 = 1x NVIDIA L4 (24 GB), 8 vCPU
 IMAGE_FAMILY="${IMAGE_FAMILY:-}"           # empty = pick the newest PyTorch GPU Deep Learning VM family
 INCLUDE_PKWIKI="${INCLUDE_PKWIKI:-0}"      # 1 = also upload the Wikimedia crops

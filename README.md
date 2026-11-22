@@ -1,11 +1,8 @@
 # Face recognition for Pakistani faces
 
-**Runner-up out of 50 university teams** in Nemo's Deep Dive, the computer vision track of AI Odyssey at
-NED CSIT TechFest '26 (Round 2: "Every Fish Has a Face").
+Runner-up out of 50 university teams in Nemo's Deep Dive, the computer vision track of AI Odyssey at NED CSIT TechFest '26 (Round 2: "Every Fish Has a Face").
 
-The system detects every face in a photo, straightens it, and decides who it is: either "same person or not" for two photos,
-or a name (or "Unknown") against a list of people who chose to be enrolled. It runs fully offline on a normal laptop CPU
-and never crashes on a photo with no face in it.
+The system detects every face in a photo, straightens it, and decides who it is: either "same person or not" for two photos, or a name (or "Unknown") against a list of people who chose to be enrolled. It runs fully offline on a normal laptop CPU and never crashes on a photo with no face in it.
 
 ![Pipeline and headline results](docs/images/pipeline_and_results.png)
 
@@ -19,8 +16,7 @@ and never crashes on a photo with no face in it.
 | 4. Embed | ArcFace (ResNet-50) turns each face into 512 numbers |
 | 5. Match | Cosine similarity against a threshold picked on validation data |
 
-The model itself is never retrained per person. Someone is "remembered" by storing their embeddings, so adding a person
-takes seconds.
+The model itself is never retrained per person. Someone is "remembered" by storing their embeddings, so adding a person takes seconds.
 
 ## Results
 
@@ -30,31 +26,30 @@ Measured on people the model never saw during any tuning. Thresholds were picked
 |---|---|---|---|
 | halfFace, 40 held-out South Asian people | 97.1% | 2.9% | 0.991 |
 | IMFDB, 24 held-out actors (movie frames, hard light and pose) | 87.5% | 10.5% | 0.955 |
-| 13 Pakistani public figures (Wikimedia photos) | 99.2% | | 0.99996 |
+| 13 Pakistani public figures (Wikimedia photos) | 99.2% | not measured | 1.000 |
 
 On halfFace, unmasked faces scored 98.2% and masked faces 94.3%.
 
 ![Error rate by pipeline step](docs/images/error_rate_by_step.png)
 
-**Alignment matters most.** Removing it raises the error from 2.9% to 25.4%.
+Alignment matters most. Removing it raises the error from 2.9% to 25.4%.
 
-**Fine-tuning didn't clearly help.** We fine-tuned ArcFace on about 2,900 photos of 159 people on a cloud GPU. It did a
-little better on masked faces and movie frames, and a little worse on clean photos, so we kept the original model. Every
-number, including the negative results, is in [`report/RESULTS_FOR_REPORT.md`](report/RESULTS_FOR_REPORT.md), and the
-full report is [`report/Face_Recognition_Report.pdf`](report/Face_Recognition_Report.pdf).
+Fine-tuning didn't clearly help. We fine-tuned ArcFace on about 2,900 photos of 159 people on a cloud GPU. It did a little better on masked faces and movie frames, and a little worse on clean photos, so we kept the original model. Every number, including the negative results, is in [docs/RESULTS.md](docs/RESULTS.md), and the full report is [docs/Face_Recognition_Report.pdf](docs/Face_Recognition_Report.pdf). Design choices and their reasons are in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Live demo
 
 ![Check page](docs/images/demo_check_page.png)
 
 `demo/collect.py` serves a small web page that anyone holding the link can open on a phone or laptop. It has two tabs:
-- **Check:** your camera or an uploaded photo. Every face gets a name or "Unknown". Pictures are checked and never saved.
-- **Enroll:** turn your head and the page takes a few photos on its own. Nobody is added until the team approves the request
-  on a separate private page.
+
+- Check: your camera or an uploaded photo. Every face gets a name or "Unknown". Pictures are checked and never saved.
+- Enroll: turn your head and the page takes a few photos on its own. Nobody is added until the team approves the request on a separate private page.
 
 The link isn't permanently online, because it runs on a team member's laptop. Ask the team for a demo.
 
 ## Run it yourself
+
+Tested with Python 3.12.
 
 ```
 python -m venv .venv
@@ -62,8 +57,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-The face models aren't stored in this repo. Download InsightFace `buffalo_l`
-(https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip) and unzip it into `models/buffalo_l/`.
+The face models aren't stored in this repo. Download InsightFace `buffalo_l` (https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip) and unzip it into `models/buffalo_l/`.
 
 ```
 python run.py verify --a photo1.jpg --b photo2.jpg                 # same person or not, with a score
@@ -73,8 +67,7 @@ python gallery.py remove --name "Ali Khan"                         # erase a per
 python live.py --source 0                                          # webcam page at http://127.0.0.1:8000
 ```
 
-Demo pages: `pip install -r demo/requirements.txt`, then `python demo/collect.py` (live check and enroll page) or
-`python demo/app.py` (puts names on faces in a video file).
+Demo pages: `pip install -r demo/requirements.txt`, then `python demo/collect.py` (live check and enroll page) or `python demo/app.py` (puts names on faces in a video file).
 
 ## What's in the repo
 
@@ -89,24 +82,25 @@ Demo pages: `pip install -r demo/requirements.txt`, then `python demo/collect.py
 | `collect_wikimedia.py`, `process_wikimedia.py` | Builds the small Pakistani test set from free-licence Wikipedia photos |
 | `submission/` | The script used on competition day |
 | `demo/` | Live web demo and video maker |
+| `tools/` | Cloud GPU job, bootstrap tests, identification benchmark |
+| `data/` | Split lists only (who is in which split). No face images |
 | `results/` | Raw result files and charts |
-| `report/` | Final report and all numbers in plain words |
-| `notes/` | The team's working notes: decisions and reasons, history, handoff docs |
+| `docs/` | Report, all numbers, design decisions, data sources |
 
 ## Data and licences
 
-- **halfFace** (Mendeley pk44mkx9vm, CC BY 4.0): 166 South Asian people, masked and unmasked. A South Asian stand-in,
-  not a Pakistani-only set.
-- **IMFDB** (IIIT Hyderabad): Indian film actors. The website states no licence, so the photos stay local. Only the list of
-  who is in which split is in this repo.
-- **Wikimedia**: free-licence photos of Pakistani public figures. Each photo's licence and author is listed in
-  `data/pk_wiki/records.jsonl`.
+- halfFace (Mendeley pk44mkx9vm, CC BY 4.0): 166 South Asian people, masked and unmasked. A South Asian stand-in, not a Pakistani-only set.
+- IMFDB (IIIT Hyderabad): Indian film actors. The website states no licence, so the photos stay local. Only the list of who is in which split is in this repo.
+- Wikimedia: free-licence photos of Pakistani public figures, used only as an unseen test. A free licence is not the person's consent, so these photos are not published here.
 
-More detail is in [`ATTRIBUTION_AND_USE.md`](ATTRIBUTION_AND_USE.md).
+More detail is in [docs/DATA.md](docs/DATA.md).
 
-The InsightFace `buffalo_l` models (SCRFD and ArcFace) are licensed for **non-commercial research only**. This is a student
-project, not a product. Don't use it to identify people who haven't agreed to it.
+## License
+
+The code is under the [MIT License](LICENSE). The InsightFace `buffalo_l` models (SCRFD and ArcFace) are licensed separately, for non-commercial research only. This is a student project, not a product. Don't use it to identify people who haven't agreed to it.
 
 ## Team
 
-Syed Mohammad Huzaifa, Maaz Rehman and Shaikh Muhammad Zain.
+- Maaz Rehman ([@maazrehman99](https://github.com/maazrehman99))
+- Shaikh Muhammad Zain ([@ZainDev04](https://github.com/ZainDev04))
+- Syed Mohammad Huzaifa ([@huzaifaguru](https://github.com/huzaifaguru))

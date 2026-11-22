@@ -7,7 +7,7 @@
 set -euo pipefail
 PROJECT="${PROJECT:-r2r-coros-dev}"
 ZONE="${ZONE:-asia-south1-b}"
-VM="${VM:-maaz-dev-vm}"
+VM="${VM:-techfest-ft-vm}"
 MACHINE="${MACHINE:-g2-standard-8}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 G=(gcloud --project "$PROJECT")

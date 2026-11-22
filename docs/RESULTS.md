@@ -1,11 +1,10 @@
-# Numbers and key points for the report (plain words)
+# Results
 
-Written 2026-10-22 from the result files in `results/` (everything below is copied from the data by script, not typed by hand).
-Short version first, then every number, then the honest limits.
+Every number below was copied by script from the result files in `results/`, not typed by hand. Short version first, then every number, then the limits.
 
-## 0. The 10 key points
+## 0. Key points
 
-1. **We use ArcFace (ResNet-50, InsightFace `buffalo_l`) as the recogniser, with SCRFD-10G as the face detector. It was our choice, made on purpose** (decisions D1 and D2 in `notes/DECISIONS.md`). Reason: it is the strongest model that runs on a normal CPU, it is a standard, well-trusted design, and the competition judges the pipeline, the fine-tuning attempt and the evaluation, not a new backbone. AdaFace was the optional challenger; we never tested it for lack of time. The weights are non-commercial research only, so we cite them and never present this as a product.
+1. **We use ArcFace (ResNet-50, InsightFace `buffalo_l`) as the recogniser, with SCRFD-10G as the face detector. It was our choice, made on purpose** (decisions D1 and D2 in `DECISIONS.md`). Reason: it is the strongest model that runs on a normal CPU, it is a standard, well-trusted design, and the competition judges the pipeline, the fine-tuning attempt and the evaluation, not a new backbone. AdaFace was the optional challenger; we never tested it for lack of time. The weights are non-commercial research only, so we cite them and never present this as a product.
 2. **The pipeline is: detect the face, find 5 landmarks, check quality, straighten (align) to 112 by 112, turn into 512 numbers (embedding), compare with cosine similarity, apply a threshold.** One model serves two modes: *verify* (two photos, same or different person) and *face memory* (name or Unknown).
 3. **Alignment is essential.** Without it the error (EER) jumps from 2.9% to 25.4% on the held-out halfFace people.
 4. **The original model is already strong:** 97.1% accuracy and 2.9% EER on 40 held-out South Asian people (halfFace), 98.2% accuracy on unmasked faces and 94.3% on masked faces.
@@ -33,7 +32,7 @@ Split sizes used in the GPU run (people / photos):
 | Validation | 26 / 141 | 15 / 600 | **41 / 741** |
 | Test (held out) | 40 / 226 | 24 / 960 | **64 / 1,186** |
 
-Deviation to state in the report: the Wikimedia photos were **left out of the GPU training** (kept local, privacy rule), so the Pakistani check is truly unseen by both models. The full-pipeline test used the original photos of the validation and test people only (halfFace 372 photos of 66 people, IMFDB 1,560 photos of 39 actors).
+Note: the Wikimedia photos were **left out of the GPU training** (kept local, privacy rule), so the Pakistani check is truly unseen by both models. The full-pipeline test used the original photos of the validation and test people only (halfFace 372 photos of 66 people, IMFDB 1,560 photos of 39 actors).
 
 ## 2. The original model, full pipeline, held-out people
 
@@ -158,7 +157,7 @@ Conclusion: a small gain on hard photos (IMFDB EER 10.5% to 10.0%, AUC 0.9545 to
 
 Both are near perfect and the difference (about 2 pairs) is noise. A harder Pakistani test with real coverings (dupatta, hijab, cap, beard, mask) is still missing; the script `tools/eval_pk_test.py` is ready for hand-picked photos in `data/pk_test/`.
 
-## 6. Honest limits to write down
+## 6. Limits
 
 - Only about 3,000 training photos of 159 people; far too little to improve a model trained on millions of faces.
 - About 90% of halfFace people are men (15 women in 166). Women results are weak and uncertain.
@@ -169,7 +168,7 @@ Both are near perfect and the difference (about 2 pairs) is noise. A harder Paki
 - The face detector ran on CPU in the evaluation because the GPU build of ONNX Runtime would not start on the cloud VM (CUDA 12.9 mismatch); the numbers are identical, only slower.
 - Real webcam test of the live demo and unknown-person rejection are still to do.
 
-## 7. What we did, in order (for the process section)
+## 7. What we did, in order
 
 1. 2026-10-18/19: chose ArcFace R50 (D1, D2), built the pipeline, evaluation kit, augmentation and the data collector; baseline on halfFace.
 2. 2026-10-20/21: collected Wikimedia public figures (only 13 usable people), decided A+B: split halfFace by person for training and use Wikimedia as the Pakistani check.

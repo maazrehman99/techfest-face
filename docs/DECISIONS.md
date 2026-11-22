@@ -1,6 +1,6 @@
 # Design decisions (with reasoning)
 
-Updated 2026-10-18. Every choice is justified against the problem statement, the 22 Oct report deadline, and the fact that the team has **no local GPU**.
+Written during the competition (18 to 22 October 2026). Every choice is justified against the problem statement, the 22 Oct report deadline, and the fact that the team has **no local GPU**.
 
 ## D1. Reuse InsightFace (detector + recognizer) instead of writing our own
 - Statement allows "any suitable architecture"; judged on pipeline quality, fine-tuning on Pakistani data, and evaluation rigor, not on re-inventing backbones.
@@ -58,5 +58,5 @@ Final goal: a model well trained for Pakistani faces, including dupatta/scarf/hi
 ## D13. Which model ships (2026-10-22): the ORIGINAL ArcFace R50
 - Rule (D8): keep the fine-tune only if it is better. Result: small gain on hard IMFDB frames and masked faces, loss on clean halfFace (EER 2.9% to 3.9%), no gain on the Pakistani check, bootstrap shows the gain is marginal. `config.json` `rec_onnx` stays null. The fine-tune is reported as an honest mixed result. ArcFace R50 as the base model stays our deliberate choice (D1, D2); AdaFace was never tested.
 
-## D14. Extra Pakistani test photos (2026-10-22, open)
-- User allowed a hand-picked test-only set. No bulk scraping of Google Images. Openverse (CC) was tried via `collect_openverse.py` but answered with a bot check, so it is parked until an API key exists or the user picks photos by hand into `data/pk_test/`. Evaluation script ready: `tools/eval_pk_test.py`.
+## D14. Extra Pakistani test photos (open)
+- A hand-picked, test-only set of Pakistani photos with real coverings is allowed; bulk scraping of Google Images is not (unlicensed). Openverse (CC) answered with a bot check, so this is still open. The evaluation script is ready: `tools/eval_pk_test.py`.
